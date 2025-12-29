@@ -51,11 +51,14 @@ const AssignmentSchema = new mongoose.Schema({
 const Assignment = mongoose.model('Assignment', AssignmentSchema);
 
 const SubmissionSchema = new mongoose.Schema({
-  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom' }, // Để dễ lọc
+  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom' },
   assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment' },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   studentName: String,
-  imageUrl: String,
+  
+  // 👇 THAY ĐỔI Ở ĐÂY: Chuyển từ String sang mảng String
+  imageUrls: [{ type: String }], 
+  
   grade: { type: Number, default: null },
   feedback: { type: String, default: "" },
   submittedAt: { type: Date, default: Date.now }

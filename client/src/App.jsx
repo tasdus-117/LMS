@@ -299,17 +299,25 @@ function TeacherClassDashboard({ user }) {
                                                             <div key={sub._id} style={{background:'#f8fafc', padding:10, borderRadius:8, border:'1px solid #e2e8f0'}}>
                                                                 <div style={{fontWeight:700, marginBottom:5}}>👤 {sub.studentName}</div>
                                                                 
-                                                                {/* Ảnh bài làm */}
-                                                                <a href={sub.imageUrl} target="_blank" rel="noreferrer">
-                                                                    <img src={sub.imageUrl} alt="Bài làm" style={{width:'100%', height:120, objectFit:'cover', borderRadius:4, border:'1px solid #ddd'}} />
-                                                                </a>
+                                                                {/* KHU VỰC HIỂN THỊ NHIỀU ẢNH */}
+                                                                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(80px, 1fr))', gap:5, marginBottom:10}}>
+                                                                    {images.map((img, idx) => (
+                                                                        <a key={idx} href={img} target="_blank" rel="noreferrer">
+                                                                            <img 
+                                                                                src={img} 
+                                                                                alt={`Trang ${idx+1}`} 
+                                                                                style={{width:'100%', height:80, objectFit:'cover', borderRadius:4, border:'1px solid #ddd'}} 
+                                                                            />
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
                                                                 
-                                                                <div style={{marginTop:10}}>
+                                                                <div style={{marginTop:5}}>
                                                                     <label style={{fontSize:11, fontWeight:600}}>Điểm số:</label>
                                                                     <input id={`g-${sub._id}`} className="form-input" type="number" defaultValue={sub.grade} placeholder="0-10" style={{marginBottom:5}} />
                                                                     
                                                                     <label style={{fontSize:11, fontWeight:600}}>Nhận xét:</label>
-                                                                    <input id={`f-${sub._id}`} className="form-input" defaultValue={sub.feedback} placeholder="Tốt/Cần cố gắng..." style={{marginBottom:5}} />
+                                                                    <input id={`f-${sub._id}`} className="form-input" defaultValue={sub.feedback} placeholder="Nhận xét..." style={{marginBottom:5}} />
                                                                     
                                                                     <button className="btn-primary" style={{width:'100%', padding:5, fontSize:12}} 
                                                                         onClick={() => handleGrade(sub._id, document.getElementById(`g-${sub._id}`).value, document.getElementById(`f-${sub._id}`).value)}>
@@ -666,53 +674,82 @@ function StudentSubmitArea({ user, assignment, classId }) {
              .then(r => setSub(r.data.find(s=>s.assignmentId?._id === assignment._id))); 
     }, [assignment]);
     
-    const upload = async (file) => {
+    const handleUpload = async (files) => {
+        if (!files || files.length === 0) return;
         setLoading(true);
-        const fd = new FormData(); fd.append("file", file); fd.append("upload_preset", UPLOAD_PRESET);
+        
         try {
-            const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, fd);
-            await axios.post(`${API_URL}/submissions`, { classId, assignmentId: assignment._id, studentId: user._id, studentName: user.fullName, imageUrl: res.data.secure_url });
+            const uploadedUrls = [];
+            // Duyệt qua từng file và upload lên Cloudinary
+            for (let i = 0; i < files.length; i++) {
+                const fd = new FormData(); 
+                fd.append("file", files[i]); 
+                fd.append("upload_preset", UPLOAD_PRESET);
+                
+                const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, fd);
+                uploadedUrls.push(res.data.secure_url);
+            }
+
+            // Gửi mảng link ảnh về backend
+            await axios.post(`${API_URL}/submissions`, { 
+                classId, 
+                assignmentId: assignment._id, 
+                studentId: user._id, 
+                studentName: user.fullName, 
+                imageUrls: uploadedUrls // Gửi mảng link
+            });
+            
             alert("✅ Nộp bài thành công!"); 
             window.location.reload();
-        } catch(e) { alert("Lỗi upload ảnh"); }
-        finally { setLoading(false); }
+        } catch(e) { 
+            console.error(e);
+            alert("Lỗi upload ảnh. Vui lòng thử lại."); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
-    // TRƯỜNG HỢP 1: ĐÃ NỘP BÀI
+    // --- HIỂN THỊ KHI ĐÃ NỘP ---
     if (sub) {
+        // Xử lý tương thích ngược (nếu dữ liệu cũ chỉ có imageUrl)
+        const images = sub.imageUrls && sub.imageUrls.length > 0 ? sub.imageUrls : [sub.imageUrl];
+
         return (
             <div style={{marginTop:10, padding:10, background: sub.grade !== null ? '#f0fdf4' : '#fffbeb', borderRadius:8, border: sub.grade !== null ? '1px solid #bbf7d0' : '1px solid #fde68a'}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
-                    <div>
-                        <div style={{fontSize:12, fontWeight:700, color: sub.grade !== null ? '#15803d' : '#b45309'}}>
-                            {sub.grade !== null ? '✅ Đã chấm điểm' : '⏳ Đã nộp, chờ chấm'}
-                        </div>
-                        <div style={{fontSize:11, color:'gray', marginTop:2}}>
-                            Nộp lúc: {new Date(sub.submittedAt).toLocaleString()}
-                        </div>
-                    </div>
-                    {/* Nút xem lại ảnh bài làm */}
-                    <a href={sub.imageUrl} target="_blank" rel="noreferrer" style={{fontSize:11, textDecoration:'underline', color:'#2563eb'}}>Xem bài làm</a>
+                <div style={{fontSize:12, fontWeight:700, color: sub.grade !== null ? '#15803d' : '#b45309'}}>
+                    {sub.grade !== null ? '✅ Đã chấm điểm' : '⏳ Đã nộp, chờ chấm'}
+                </div>
+                
+                {/* Hiển thị danh sách ảnh nhỏ */}
+                <div style={{display:'flex', gap:5, overflowX:'auto', marginTop:10, paddingBottom:5}}>
+                    {images.map((img, idx) => (
+                        <a key={idx} href={img} target="_blank" rel="noreferrer">
+                            <img src={img} alt={`Trang ${idx+1}`} style={{width:60, height:60, objectFit:'cover', borderRadius:4, border:'1px solid #ccc'}} />
+                        </a>
+                    ))}
                 </div>
 
-                {/* HIỂN THỊ ĐIỂM VÀ NHẬN XÉT (Nếu có) */}
                 {sub.grade !== null && (
                     <div style={{marginTop:10, borderTop:'1px solid #eee', paddingTop:8}}>
-                        <div style={{display:'flex', alignItems:'center', gap:10}}>
-                            <span style={{fontSize:18, fontWeight:800, color:'#dc2626'}}>{sub.grade}đ</span>
-                            <span style={{fontSize:13, fontStyle:'italic', color:'#334155'}}>"{sub.feedback || "Không có nhận xét"}"</span>
-                        </div>
+                        <span style={{fontSize:18, fontWeight:800, color:'#dc2626'}}>{sub.grade}đ</span>
+                        <span style={{fontSize:13, fontStyle:'italic', color:'#334155', marginLeft:10}}>"{sub.feedback}"</span>
                     </div>
                 )}
             </div>
         );
     }
     
-    // TRƯỜNG HỢP 2: CHƯA NỘP
+    // --- NÚT NỘP BÀI (CHO PHÉP CHỌN NHIỀU) ---
     return (
-        <label className="btn-upload" style={{marginTop:10, textAlign:'center', display:'block'}}>
-            {loading ? 'Đang nộp...' : '+ Nộp bài (Chọn ảnh)'}
-            <input type="file" hidden onChange={e=>upload(e.target.files[0])} disabled={loading} />
+        <label className="btn-upload" style={{marginTop:10, textAlign:'center', display:'block', cursor: loading ? 'wait' : 'pointer'}}>
+            {loading ? 'Đang tải ảnh lên...' : '+ Nộp bài (Chọn nhiều ảnh)'}
+            <input 
+                type="file" 
+                multiple // 👈 QUAN TRỌNG: Cho phép chọn nhiều file
+                hidden 
+                onChange={e => handleUpload(e.target.files)} 
+                disabled={loading} 
+            />
         </label>
     );
 }
