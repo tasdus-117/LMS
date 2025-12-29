@@ -163,12 +163,12 @@ function TeacherClassDashboard({ user }) {
     const [showModal, setShowModal] = useState(false);
     const [newClass, setNewClass] = useState({ name: '', desc: '' });
     
-    // State cho chi tiết lớp
+    // State chi tiết lớp
     const [detailData, setDetailData] = useState({ anns: [], asms: [] });
-    const [tab, setTab] = useState('stream'); // stream | work
+    const [classStudents, setClassStudents] = useState([]); // Danh sách HS trong lớp
+    const [tab, setTab] = useState('stream'); // stream | work | people (MỚI)
     const [content, setContent] = useState("");
 
-    // Load danh sách lớp ngay khi vào
     useEffect(() => { loadClasses(); }, []);
 
     const loadClasses = async () => { 
@@ -182,10 +182,7 @@ function TeacherClassDashboard({ user }) {
         if(!newClass.name) return alert("Vui lòng nhập tên lớp!");
         try {
             await axios.post(`${API_URL}/classes`, { ...newClass, teacherId: user._id });
-            alert("✅ Tạo lớp thành công!");
-            setShowModal(false); 
-            setNewClass({ name: '', desc: '' });
-            loadClasses();
+            alert("✅ Tạo lớp thành công!"); setShowModal(false); setNewClass({ name: '', desc: '' }); loadClasses();
         } catch(e) { alert("Lỗi tạo lớp"); }
     };
 
@@ -194,10 +191,19 @@ function TeacherClassDashboard({ user }) {
         setSelectedClass(cls);
         const res = await axios.get(`${API_URL}/classes/${cls._id}/details`);
         setDetailData(res.data);
-        setTab('stream'); // Reset về tab bảng tin
+        setTab('stream'); 
     };
 
-    // Đăng thông báo hoặc bài tập
+    // Chuyển tab và tải dữ liệu tương ứng
+    const handleTabChange = async (newTab) => {
+        setTab(newTab);
+        if (newTab === 'people') {
+            // Gọi API lấy danh sách học sinh khi bấm tab "Mọi người"
+            const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/members`);
+            setClassStudents(res.data);
+        }
+    };
+
     const handlePost = async (type) => {
         if (!content) return;
         try {
@@ -207,8 +213,23 @@ function TeacherClassDashboard({ user }) {
                 await axios.post(`${API_URL}/assignments`, { classId: selectedClass._id, title: content, description: "Bài tập mới" });
             }
             setContent(""); 
-            openClass(selectedClass); // Reload lại dữ liệu lớp
+            // Reload lại dữ liệu để thấy bài mới
+            const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/details`);
+            setDetailData(res.data);
         } catch(e) { alert("Lỗi đăng bài"); }
+    };
+
+    // --- HÀM XÓA BÀI TẬP (MỚI) ---
+    const handleDeleteAsm = async (asmId) => {
+        if(window.confirm("Bạn chắc chắn muốn xóa bài tập này? (Các bài nộp của HS cũng sẽ bị xóa)")) {
+            try {
+                await axios.delete(`${API_URL}/assignments/${asmId}`);
+                alert("Đã xóa bài tập!");
+                // Reload lại danh sách bài
+                const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/details`);
+                setDetailData(res.data);
+            } catch (e) { alert("Lỗi khi xóa"); }
+        }
     };
 
     // Giao diện chi tiết lớp
@@ -223,10 +244,12 @@ function TeacherClassDashboard({ user }) {
                 </div>
                 
                 <div className="auth-tabs" style={{marginBottom:20}}>
-                    <div className={`auth-tab ${tab==='stream'?'active':''}`} onClick={()=>setTab('stream')}>📢 Bảng tin</div>
-                    <div className={`auth-tab ${tab==='work'?'active':''}`} onClick={()=>setTab('work')}>📝 Bài tập</div>
+                    <div className={`auth-tab ${tab==='stream'?'active':''}`} onClick={()=>handleTabChange('stream')}>📢 Bảng tin</div>
+                    <div className={`auth-tab ${tab==='work'?'active':''}`} onClick={()=>handleTabChange('work')}>📝 Bài tập</div>
+                    <div className={`auth-tab ${tab==='people'?'active':''}`} onClick={()=>handleTabChange('people')}>👥 Mọi người</div>
                 </div>
 
+                {/* TAB BẢNG TIN */}
                 {tab === 'stream' && (
                     <div>
                         <div className="course-card">
@@ -242,6 +265,7 @@ function TeacherClassDashboard({ user }) {
                     </div>
                 )}
 
+                {/* TAB BÀI TẬP (CÓ NÚT XÓA) */}
                 {tab === 'work' && (
                     <div>
                          <div className="course-card">
@@ -251,11 +275,46 @@ function TeacherClassDashboard({ user }) {
                         <div className="card-grid">
                             {detailData.asms.map(asm => (
                                 <div key={asm._id} className="course-card">
-                                    <h3>{asm.title}</h3>
+                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+                                        <h3>{asm.title}</h3>
+                                        <button 
+                                            onClick={() => handleDeleteAsm(asm._id)}
+                                            style={{background:'none', border:'none', cursor:'pointer', fontSize:16}} 
+                                            title="Xóa bài tập"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
                                     <TeacherGrading classId={selectedClass._id} />
                                 </div>
                             ))}
                         </div>
+                    </div>
+                )}
+
+                {/* TAB MỌI NGƯỜI (DANH SÁCH HS) - MỚI */}
+                {tab === 'people' && (
+                    <div className="course-card">
+                        <h3 style={{marginTop:0}}>Danh sách thành viên ({classStudents.length})</h3>
+                        <table style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
+                            <thead>
+                                <tr style={{textAlign:'left', borderBottom:'2px solid #eee'}}>
+                                    <th style={{padding:10}}>STT</th>
+                                    <th style={{padding:10}}>Họ và tên</th>
+                                    <th style={{padding:10}}>Tên đăng nhập</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {classStudents.map((s, index) => (
+                                    <tr key={s._id} style={{borderBottom:'1px solid #eee'}}>
+                                        <td style={{padding:10}}>{index + 1}</td>
+                                        <td style={{padding:10, fontWeight:600}}>{s.fullName}</td>
+                                        <td style={{padding:10, color:'gray'}}>{s.username}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {classStudents.length === 0 && <p style={{color:'gray', marginTop:10}}>Chưa có học sinh nào tham gia lớp này.</p>}
                     </div>
                 )}
             </div>

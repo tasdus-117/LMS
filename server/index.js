@@ -182,4 +182,25 @@ app.get('/api/teacher/stats', async (req, res) => {
         res.status(500).json({ message: "Lỗi thống kê" });
     }
 });
+app.get('/api/classes/:id/members', async (req, res) => {
+    try {
+        const cls = await Classroom.findById(req.params.id).populate('studentIds', 'fullName username');
+        if (!cls) return res.status(404).json({ message: "Không tìm thấy lớp" });
+        res.json(cls.studentIds); // Trả về danh sách học sinh
+    } catch (e) {
+        res.status(500).json({ message: "Lỗi server" });
+    }
+});
+
+// 2. API Xóa bài tập (Và xóa luôn các bài nộp liên quan)
+app.delete('/api/assignments/:id', async (req, res) => {
+    try {
+        await Assignment.findByIdAndDelete(req.params.id);
+        // Xóa luôn các bài nộp của bài tập này để sạch database
+        await Submission.deleteMany({ assignmentId: req.params.id });
+        res.json({ message: "Đã xóa bài tập" });
+    } catch (e) {
+        res.status(500).json({ message: "Lỗi xóa bài" });
+    }
+});
 app.listen(5000, () => console.log('Server running on port 5000'));
