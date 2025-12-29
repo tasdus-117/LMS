@@ -8,44 +8,25 @@ const CLOUD_NAME = "ddytwonba";
 const UPLOAD_PRESET = "ddytwonba"; 
 
 function App() {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('lms_user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('lms_user')));
+  const [activePage, setActivePage] = useState('dashboard');
 
-  // 1. SỬA: Lấy trang hiện tại từ URL (nếu có), nếu không thì mặc định là 'dashboard'
-  const [activePage, setActivePage] = useState(() => {
-      const hash = window.location.hash.replace('#', '');
-      return hash || 'dashboard';
-  });
+  const handleLogin = (u) => { localStorage.setItem('lms_user', JSON.stringify(u)); setUser(u); setActivePage('dashboard'); };
+  const handleLogout = () => { localStorage.removeItem('lms_user'); setUser(null); };
 
-  // 2. THÊM: Theo dõi sự thay đổi của activePage để cập nhật URL
-  useEffect(() => {
-      window.location.hash = activePage;
-  }, [activePage]);
+  if (!user) return <AuthPage onLogin={handleLogin} />;
 
-  // 3. THÊM: Lắng nghe khi người dùng bấm nút Back/Forward của trình duyệt
-  useEffect(() => {
-      const handleHashChange = () => {
-          const hash = window.location.hash.replace('#', '');
-          if (hash) setActivePage(hash);
-      };
-
-      window.addEventListener('hashchange', handleHashChange);
-      return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  const handleLogin = (userData) => {
-    localStorage.setItem('lms_user', JSON.stringify(userData));
-    setUser(userData);
-    setActivePage('dashboard');
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('lms_user');
-    setUser(null);
-    window.location.hash = ''; // Xóa hash khi đăng xuất
-  };
+  return (
+    <div className="layout-wrapper">
+      <Sidebar user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
+      <main className="main-content">
+        <Header user={user} />
+        {user.role === 'ADMIN' && <AdminView activePage={activePage} user={user} />}
+        {user.role === 'TEACHER' && <TeacherView user={user} activePage={activePage} />}
+        {user.role === 'STUDENT' && <StudentView user={user} activePage={activePage} />}
+      </main>
+    </div>
+  );
 }
 
 // 1. AUTH PAGE & SIDEBAR & HEADER (GIỮ NGUYÊN CODE CỦA BẠN - MÌNH RÚT GỌN ĐỂ DỄ NHÌN)
