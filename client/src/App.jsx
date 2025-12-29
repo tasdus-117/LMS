@@ -16,41 +16,47 @@ function App() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  // 1. KHỞI TẠO: Luôn đọc từ URL trước tiên
+  // 1. SỬA: Lấy trang hiện tại từ URL (sau dấu #) ngay khi khởi động
+  // Nếu URL là .../#stats thì hash là 'stats', nếu không có thì về 'dashboard'
   const [activePage, setActivePage] = useState(() => {
       const hash = window.location.hash.replace('#', '');
       return hash || 'dashboard';
   });
 
-  // 2. LẮNG NGHE URL: Chỉ khi URL thay đổi (F5, Back, Forward) thì mới đổi giao diện
+  // 2. THÊM: Mỗi khi activePage thay đổi (do bấm menu) -> Cập nhật lên URL
+  useEffect(() => {
+      if (user) {
+          window.location.hash = activePage;
+      }
+  }, [activePage, user]);
+
+  // 3. THÊM: Lắng nghe sự kiện khi URL thay đổi (Do F5 hoặc nút Back/Forward)
   useEffect(() => {
       const handleHashChange = () => {
           const hash = window.location.hash.replace('#', '');
-          // Nếu hash rỗng (VD: xoá hết hash), về dashboard
-          setActivePage(hash || 'dashboard');
+          if (hash) {
+              setActivePage(hash);
+          } else {
+              setActivePage('dashboard');
+          }
       };
 
       // Đăng ký sự kiện
       window.addEventListener('hashchange', handleHashChange);
       
-      // Quan trọng: Gọi 1 lần ngay khi F5 để đảm bảo đúng trang
-      handleHashChange();
-
+      // Dọn dẹp sự kiện khi thoát
       return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // 3. HÀM CHUYỂN TRANG: Khi bấm menu, ta đổi URL chứ không đổi state trực tiếp
-  // (URL đổi -> Kích hoạt sự kiện ở trên -> State đổi -> Giao diện đổi)
-  const handlePageChange = (page) => {
-      window.location.hash = page;
-  };
-
+  // 4. SỬA: Khi Login xong thì set hash về dashboard
   const handleLogin = (userData) => {
     localStorage.setItem('lms_user', JSON.stringify(userData));
     setUser(userData);
-    handlePageChange('dashboard'); // Đổi URL về dashboard
+    setActivePage('dashboard');
+    window.location.hash = 'dashboard'; 
   };
 
+  // 5. SỬA: Khi Logout thì xóa hash cho sạch đẹp
   const handleLogout = () => {
     localStorage.removeItem('lms_user');
     setUser(null);
@@ -59,16 +65,10 @@ function App() {
 
   if (!user) return <AuthPage onLogin={handleLogin} />;
 
+  // ... (Phần return bên dưới GIỮ NGUYÊN KHÔNG ĐỔI) ...
   return (
     <div className="layout-wrapper">
-      {/* Truyền handlePageChange vào chỗ setActivePage */}
-      <Sidebar 
-          user={user} 
-          activePage={activePage} 
-          setActivePage={handlePageChange} 
-          onLogout={handleLogout} 
-      />
-      
+      <Sidebar user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
       <main className="main-content">
         <Header user={user} />
         {user.role === 'ADMIN' && <AdminView activePage={activePage} user={user} />}
