@@ -1,0 +1,189 @@
+/* client/src/index.css hoặc App.css */
+:root {
+  --primary: #4f46e5; /* Xanh tím hiện đại */
+  --primary-hover: #4338ca;
+  --bg-color: #f3f4f6;
+  --white: #ffffff;
+  --text-main: #111827;
+  --text-gray: #6b7280;
+  --danger: #ef4444;
+  --success: #10b981;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --radius: 12px;
+}
+
+body {
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout chung */
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--white);
+  padding: 15px 30px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 30px;
+}
+
+.header h2 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 1.5rem;
+}
+
+/* Auth Screen (Login) */
+.auth-container {
+  max-width: 400px;
+  margin: 80px auto;
+  background: var(--white);
+  padding: 40px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.auth-title {
+  font-size: 2rem;
+  margin-bottom: 30px;
+  color: var(--primary);
+  font-weight: bold;
+}
+
+/* Form Elements */
+input, select {
+  width: 100%;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box; /* Quan trọng để không bị vỡ layout */
+}
+
+input:focus, select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.btn {
+  background: var(--primary);
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+}
+
+.btn:hover {
+  background: var(--primary-hover);
+}
+
+.btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-logout {
+  background: #f3f4f6;
+  color: var(--text-main);
+  width: auto;
+  padding: 8px 16px;
+}
+.btn-logout:hover {
+  background: #e5e7eb;
+}
+
+.link-text {
+  margin-top: 20px;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.link-text:hover { text-decoration: underline; }
+
+/* Dashboard Layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr; /* Chia cột 1:2 */
+  gap: 30px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+/* Cards */
+.card {
+  background: var(--white);
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.card-hover:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  cursor: pointer;
+}
+
+.card-active {
+  border-left: 5px solid var(--primary);
+  background-color: #eef2ff;
+}
+
+.card h3, .card h4 { margin-top: 0; color: #1f2937; }
+.card p { color: var(--text-gray); line-height: 1.5; }
+
+/* Status Labels */
+.status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.status-success { background: #d1fae5; color: #065f46; } /* Xanh lá */
+.status-pending { background: #fee2e2; color: #991b1b; } /* Đỏ nhạt */
+.status-waiting { background: #fef3c7; color: #92400e; } /* Vàng */
+
+/* Image Preview */
+.img-preview {
+  width: 100%;
+  max-width: 300px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  margin-top: 10px;
+}
+
+/* Actions in Card */
+.action-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+.input-small { margin-bottom: 0; }
