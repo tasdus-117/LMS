@@ -143,5 +143,43 @@ app.put('/api/submissions/:id', async (req, res) => { res.json(await Submission.
 
 // API Thống kê toàn hệ thống (Giữ lại cho Dashboard cũ nếu cần)
 app.get('/api/all-submissions', async (req, res) => { res.json(await Submission.find().populate('studentId', 'fullName')); });
+app.get('/api/teacher/stats', async (req, res) => {
+    try {
+        // 1. Lấy tất cả bài nộp đã có điểm
+        const submissions = await Submission.find({ grade: { $ne: null } }).populate('studentId', 'fullName');
+        
+        // 2. Tính toán thủ công (Group by Student)
+        const stats = {};
+        
+        submissions.forEach(sub => {
+            if (!sub.studentId) return; // Bỏ qua nếu user bị xóa
+            const sId = sub.studentId._id;
+            const sName = sub.studentId.fullName;
 
+            if (!stats[sId]) {
+                stats[sId] = { 
+                    _id: sId, 
+                    name: sName, 
+                    totalScore: 0, 
+                    count: 0 
+                };
+            }
+            stats[sId].totalScore += sub.grade;
+            stats[sId].count += 1;
+        });
+
+        // 3. Chuyển thành mảng và tính điểm TB
+        const result = Object.values(stats).map(s => ({
+            ...s,
+            avg: (s.totalScore / s.count).toFixed(2) // Làm tròn 2 số thập phân
+        }));
+
+        // 4. Sắp xếp: Điểm TB cao xếp trước. Nếu bằng điểm thì ai làm nhiều bài hơn xếp trước.
+        result.sort((a, b) => b.avg - a.avg || b.count - a.count);
+
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ message: "Lỗi thống kê" });
+    }
+});
 app.listen(5000, () => console.log('Server running on port 5000'));
