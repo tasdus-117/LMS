@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-mongoose.connect('mongodb://127.0.0.1:27017/lms_demo')
+mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/lms_demo')
   .then(() => {
     console.log('Đã kết nối MongoDB');
     createDefaultAdmin(); // Tự động tạo Admin
