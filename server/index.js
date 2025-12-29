@@ -206,4 +206,21 @@ app.delete('/api/assignments/:id', async (req, res) => {
         res.status(500).json({ message: "Lỗi xóa bài" });
     }
 });
+app.get('/api/classes/:id/members', async (req, res) => {
+    try {
+        const cls = await Classroom.findById(req.params.id).populate('studentIds', 'fullName username');
+        res.json(cls ? cls.studentIds : []);
+    } catch (e) { res.status(500).json([]); }
+});
+
+// 2. API Xóa học sinh khỏi lớp (Kick)
+app.put('/api/classes/:classId/remove-student', async (req, res) => {
+    try {
+        const { studentId } = req.body;
+        await Classroom.findByIdAndUpdate(req.params.classId, {
+            $pull: { studentIds: studentId }
+        });
+        res.json({ message: "Đã xóa học sinh khỏi lớp" });
+    } catch (e) { res.status(500).json({ message: "Lỗi" }); }
+});
 app.listen(5000, () => console.log('Server running on port 5000'));

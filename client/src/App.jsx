@@ -156,7 +156,6 @@ function TeacherView({ user, activePage }) {
     return <TeacherClassDashboard user={user} />;
 }
 
-// --- COMPONENT CON 1: QUẢN LÝ LỚP HỌC (Dashboard) ---
 function TeacherClassDashboard({ user }) {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState(null);
@@ -166,12 +165,12 @@ function TeacherClassDashboard({ user }) {
     // State chi tiết lớp
     const [detailData, setDetailData] = useState({ anns: [], asms: [] });
     const [classSubmissions, setClassSubmissions] = useState([]); 
+    const [classStudents, setClassStudents] = useState([]); // Danh sách học sinh
     const [tab, setTab] = useState('stream'); 
     const [content, setContent] = useState("");
     
-    // State: Mở rộng bài tập để xem danh sách HS
+    // State chấm bài
     const [expandedAsmId, setExpandedAsmId] = useState(null); 
-    // State: Bài nộp đang được chấm (Mở Modal chấm bài)
     const [gradingSub, setGradingSub] = useState(null);
 
     useEffect(() => { loadClasses(); }, []);
@@ -194,10 +193,22 @@ function TeacherClassDashboard({ user }) {
     const openClass = async (cls) => {
         setSelectedClass(cls);
         setTab('stream'); 
+        
+        // Load dữ liệu ban đầu
         const resDetail = await axios.get(`${API_URL}/classes/${cls._id}/details`);
         setDetailData(resDetail.data);
+        
         const resSub = await axios.get(`${API_URL}/classes/${cls._id}/submissions`);
         setClassSubmissions(resSub.data);
+    };
+
+    // Hàm chuyển Tab (Load dữ liệu tương ứng khi bấm)
+    const handleTabChange = async (newTab) => {
+        setTab(newTab);
+        if (newTab === 'people') {
+            const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/members`);
+            setClassStudents(res.data);
+        }
     };
 
     const handlePost = async (type) => {
@@ -219,13 +230,9 @@ function TeacherClassDashboard({ user }) {
         try {
             await axios.put(`${API_URL}/submissions/${gradingSub._id}`, { grade, feedback });
             alert("✅ Đã lưu điểm!");
-            
-            // Cập nhật lại danh sách bài nộp cục bộ (để hiển thị điểm mới ngay lập tức)
-            const updatedSubs = classSubmissions.map(s => 
-                s._id === gradingSub._id ? { ...s, grade: parseFloat(grade), feedback } : s
-            );
+            const updatedSubs = classSubmissions.map(s => s._id === gradingSub._id ? { ...s, grade: parseFloat(grade), feedback } : s);
             setClassSubmissions(updatedSubs);
-            setGradingSub(null); // Đóng modal chấm bài
+            setGradingSub(null);
         } catch (e) { alert("Lỗi lưu điểm"); }
     };
 
@@ -237,7 +244,17 @@ function TeacherClassDashboard({ user }) {
         }
     };
 
-    // Giao diện chính
+    // Hàm xóa học sinh khỏi lớp
+    const handleKickStudent = async (studentId) => {
+        if(window.confirm("Bạn muốn xóa học sinh này khỏi lớp?")) {
+            await axios.put(`${API_URL}/classes/${selectedClass._id}/remove-student`, { studentId });
+            // Load lại danh sách
+            const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/members`);
+            setClassStudents(res.data);
+        }
+    };
+
+    // --- GIAO DIỆN CHÍNH ---
     if (selectedClass) {
         return (
             <div>
@@ -247,11 +264,14 @@ function TeacherClassDashboard({ user }) {
                     <p>Mã lớp: <b>{selectedClass.code}</b></p>
                 </div>
                 
+                {/* 3 TAB CHỨC NĂNG */}
                 <div className="auth-tabs" style={{marginBottom:20}}>
-                    <div className={`auth-tab ${tab==='stream'?'active':''}`} onClick={()=>setTab('stream')}>📢 Bảng tin</div>
-                    <div className={`auth-tab ${tab==='work'?'active':''}`} onClick={()=>setTab('work')}>📝 Bài tập & Chấm điểm</div>
+                    <div className={`auth-tab ${tab==='stream'?'active':''}`} onClick={()=>handleTabChange('stream')}>📢 Bảng tin</div>
+                    <div className={`auth-tab ${tab==='work'?'active':''}`} onClick={()=>handleTabChange('work')}>📝 Bài tập</div>
+                    <div className={`auth-tab ${tab==='people'?'active':''}`} onClick={()=>handleTabChange('people')}>👥 Mọi người</div>
                 </div>
 
+                {/* TAB 1: BẢNG TIN */}
                 {tab === 'stream' && (
                     <div>
                         <div className="course-card">
@@ -266,16 +286,15 @@ function TeacherClassDashboard({ user }) {
                     </div>
                 )}
 
+                {/* TAB 2: BÀI TẬP & CHẤM ĐIỂM */}
                 {tab === 'work' && (
                     <div>
                          <div className="course-card">
                             <input className="form-input" placeholder="Tên bài tập mới..." value={content} onChange={e=>setContent(e.target.value)} />
                             <button className="btn-primary" onClick={()=>handlePost('assignment')}>Giao bài</button>
                         </div>
-                        
                         <div className="card-grid">
                             {detailData.asms.map(asm => {
-                                // Lọc bài nộp của assignment này
                                 const subsForThisAsm = classSubmissions.filter(s => {
                                     const sAsmId = s.assignmentId?._id || s.assignmentId;
                                     return String(sAsmId) === String(asm._id);
@@ -291,13 +310,11 @@ function TeacherClassDashboard({ user }) {
                                             </div>
                                             <div style={{display:'flex', gap:5}}>
                                                 <button className="btn-upload" onClick={() => setExpandedAsmId(isExpanded ? null : asm._id)}>
-                                                    {isExpanded ? 'Đóng lại' : '📂 Xem danh sách nộp'}
+                                                    {isExpanded ? 'Đóng lại' : '📂 Danh sách nộp'}
                                                 </button>
                                                 <button className="btn-upload" style={{color:'red'}} onClick={()=>handleDeleteAsm(asm._id)}>🗑️</button>
                                             </div>
                                         </div>
-
-                                        {/* DANH SÁCH HỌC SINH NỘP BÀI (Dạng bảng) */}
                                         {isExpanded && (
                                             <div style={{marginTop:15, borderTop:'1px solid #eee', paddingTop:15}}>
                                                 {subsForThisAsm.length === 0 ? <p style={{color:'gray'}}>Chưa có bài nộp.</p> : (
@@ -305,9 +322,9 @@ function TeacherClassDashboard({ user }) {
                                                         <thead>
                                                             <tr style={{textAlign:'left', background:'#f8fafc', borderBottom:'1px solid #ddd'}}>
                                                                 <th style={{padding:8}}>Học sinh</th>
-                                                                <th style={{padding:8}}>Thời gian nộp</th>
-                                                                <th style={{padding:8}}>Trạng thái</th>
-                                                                <th style={{padding:8}}>Hành động</th>
+                                                                <th style={{padding:8}}>Thời gian</th>
+                                                                <th style={{padding:8}}>Điểm</th>
+                                                                <th style={{padding:8}}>Action</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -315,17 +332,9 @@ function TeacherClassDashboard({ user }) {
                                                                 <tr key={sub._id} style={{borderBottom:'1px solid #eee'}}>
                                                                     <td style={{padding:8, fontWeight:600}}>{sub.studentName}</td>
                                                                     <td style={{padding:8}}>{new Date(sub.submittedAt).toLocaleDateString()}</td>
+                                                                    <td style={{padding:8}}>{sub.grade !== null ? <b style={{color:'green'}}>{sub.grade}</b> : '---'}</td>
                                                                     <td style={{padding:8}}>
-                                                                        {sub.grade !== null ? 
-                                                                            <span className="tag tag-green">{sub.grade}đ</span> : 
-                                                                            <span className="tag" style={{background:'#fef3c7', color:'#d97706'}}>Chưa chấm</span>
-                                                                        }
-                                                                    </td>
-                                                                    <td style={{padding:8}}>
-                                                                        <button className="btn-primary" style={{padding:'4px 8px', fontSize:12}} 
-                                                                            onClick={() => setGradingSub(sub)}>
-                                                                            ✍️ Chấm bài
-                                                                        </button>
+                                                                        <button className="btn-primary" style={{padding:'4px 8px', fontSize:12}} onClick={() => setGradingSub(sub)}>✍️ Chấm</button>
                                                                     </td>
                                                                 </tr>
                                                             ))}
@@ -340,15 +349,45 @@ function TeacherClassDashboard({ user }) {
                         </div>
                     </div>
                 )}
-                
-                {/* MODAL CHẤM BÀI (HIỆN RA KHI BẤM NÚT CHẤM) */}
-                {gradingSub && (
-                    <GradingModal 
-                        submission={gradingSub} 
-                        onClose={() => setGradingSub(null)} 
-                        onSave={handleSaveGrade} 
-                    />
+
+                {/* TAB 3: MỌI NGƯỜI (DANH SÁCH HỌC SINH) */}
+                {tab === 'people' && (
+                    <div className="course-card">
+                        <h3 style={{marginTop:0}}>Danh sách thành viên ({classStudents.length})</h3>
+                        <table style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
+                            <thead>
+                                <tr style={{textAlign:'left', borderBottom:'2px solid #eee', background:'#f8fafc'}}>
+                                    <th style={{padding:10}}>STT</th>
+                                    <th style={{padding:10}}>Họ và tên</th>
+                                    <th style={{padding:10}}>Tên đăng nhập</th>
+                                    <th style={{padding:10}}>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {classStudents.map((s, index) => (
+                                    <tr key={s._id} style={{borderBottom:'1px solid #eee'}}>
+                                        <td style={{padding:10}}>{index + 1}</td>
+                                        <td style={{padding:10, fontWeight:600}}>{s.fullName}</td>
+                                        <td style={{padding:10, color:'gray'}}>{s.username}</td>
+                                        <td style={{padding:10}}>
+                                            <button 
+                                                className="btn-upload" 
+                                                style={{color:'red', borderColor:'red', padding:'5px 10px'}}
+                                                onClick={() => handleKickStudent(s._id)}
+                                            >
+                                                Mời khỏi lớp
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {classStudents.length === 0 && <p style={{color:'gray', marginTop:15}}>Lớp chưa có học sinh nào.</p>}
+                    </div>
                 )}
+                
+                {/* MODAL CHẤM BÀI (Giữ nguyên) */}
+                {gradingSub && <GradingModal submission={gradingSub} onClose={() => setGradingSub(null)} onSave={handleSaveGrade} />}
             </div>
         );
     }
