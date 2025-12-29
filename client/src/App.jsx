@@ -472,36 +472,117 @@ function TeacherGrading({ classId }) {
 // --- COMPONENT CON 2: THỐNG KÊ (Stats) ---
 function TeacherStats() {
     const [stats, setStats] = useState([]);
-    useEffect(() => { axios.get(`${API_URL}/teacher/stats`).then(res => setStats(res.data)); }, []);
+    const [range, setRange] = useState('all'); // all | day | month | semester
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        loadStats();
+    }, [range]); // Khi 'range' thay đổi, hàm này sẽ tự chạy lại
+
+    const loadStats = async () => {
+        setLoading(true);
+        try {
+            // Gửi tham số range lên server
+            const res = await axios.get(`${API_URL}/teacher/stats?range=${range}`);
+            setStats(res.data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Hàm lấy tên hiển thị cho đẹp
+    const getLabel = () => {
+        if (range === 'day') return "Hôm nay";
+        if (range === 'month') return "Tháng này";
+        if (range === 'semester') return "Kỳ này (6 tháng)";
+        return "Toàn thời gian";
+    };
 
     return (
         <div>
-            <div className="welcome-banner" style={{background:'#fef3c7', borderColor:'#f59e0b'}}>
-                <h1 style={{color:'#b45309'}}>🏆 Bảng Xếp Hạng Học Sinh</h1>
-                <p>Thống kê dựa trên điểm trung bình & số bài tập hoàn thành</p>
+            {/* Header + Bộ lọc */}
+            <div className="welcome-banner" style={{background:'#fef3c7', borderColor:'#f59e0b', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10}}>
+                <div>
+                    <h1 style={{color:'#b45309', margin:0}}>🏆 Bảng Xếp Hạng</h1>
+                    <p style={{color:'#92400e', margin:0}}>Dữ liệu: <b>{getLabel()}</b></p>
+                </div>
+                
+                {/* THANH CÔNG CỤ BỘ LỌC */}
+                <div style={{display:'flex', gap:5, background:'white', padding:5, borderRadius:8, border:'1px solid #fde68a'}}>
+                    <button 
+                        onClick={() => setRange('day')}
+                        className={range === 'day' ? 'btn-primary' : 'btn-upload'}
+                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
+                    >
+                        Hôm nay
+                    </button>
+                    <button 
+                        onClick={() => setRange('month')}
+                        className={range === 'month' ? 'btn-primary' : 'btn-upload'}
+                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
+                    >
+                        Tháng này
+                    </button>
+                    <button 
+                        onClick={() => setRange('semester')}
+                        className={range === 'semester' ? 'btn-primary' : 'btn-upload'}
+                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
+                    >
+                        Học kỳ
+                    </button>
+                    <button 
+                        onClick={() => setRange('all')}
+                        className={range === 'all' ? 'btn-primary' : 'btn-upload'}
+                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
+                    >
+                        🔁 Tất cả
+                    </button>
+                </div>
             </div>
+
+            {/* Bảng dữ liệu */}
             <div className="course-card">
-                <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
-                    <thead>
-                        <tr style={{background:'#fffbeb', textAlign:'left', borderBottom:'2px solid #fde68a'}}>
-                            <th style={{padding:10}}>Hạng</th>
-                            <th style={{padding:10}}>Học sinh</th>
-                            <th style={{padding:10, textAlign:'center'}}>Số bài</th>
-                            <th style={{padding:10, textAlign:'center'}}>Điểm TB</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {stats.map((s, i) => (
-                            <tr key={i} style={{borderBottom:'1px solid #eee'}}>
-                                <td style={{padding:10}}>{i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
-                                <td style={{padding:10, fontWeight:600}}>{s.name}</td>
-                                <td style={{padding:10, textAlign:'center'}}>{s.count}</td>
-                                <td style={{padding:10, textAlign:'center', fontWeight:700, color:'#d97706'}}>{s.avg}</td>
+                {loading ? (
+                    <div style={{textAlign:'center', padding:20, color:'gray'}}>⏳ Đang tính toán dữ liệu...</div>
+                ) : (
+                    <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
+                        <thead>
+                            <tr style={{background:'#fffbeb', textAlign:'left', borderBottom:'2px solid #fde68a'}}>
+                                <th style={{padding:10}}>Hạng</th>
+                                <th style={{padding:10}}>Học sinh</th>
+                                <th style={{padding:10, textAlign:'center'}}>Số bài làm</th>
+                                <th style={{padding:10, textAlign:'center'}}>Điểm TB</th>
+                                <th style={{padding:10}}>Danh hiệu</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {stats.length === 0 && <p style={{textAlign:'center', color:'gray', marginTop:10}}>Chưa có dữ liệu.</p>}
+                        </thead>
+                        <tbody>
+                            {stats.map((s, i) => (
+                                <tr key={i} style={{borderBottom:'1px solid #eee'}}>
+                                    <td style={{padding:10}}>
+                                        {i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
+                                    </td>
+                                    <td style={{padding:10, fontWeight:600}}>{s.name}</td>
+                                    <td style={{padding:10, textAlign:'center'}}>{s.count}</td>
+                                    <td style={{padding:10, textAlign:'center', fontWeight:700, color:'#d97706'}}>{s.avg}</td>
+                                    <td style={{padding:10}}>
+                                        {s.avg >= 9 ? <span className="tag tag-green">🔥 Cao thủ</span> : 
+                                         s.avg >= 8 ? <span className="tag tag-green">Giỏi</span> : 
+                                         s.avg >= 6.5 ? <span className="tag" style={{background:'#dbeafe', color:'#1e40af'}}>Khá</span> : 
+                                         <span className="tag" style={{background:'#f3f4f6', color:'gray'}}>Cố lên</span>}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+                {!loading && stats.length === 0 && (
+                    <div style={{textAlign:'center', padding:30, color:'#9ca3af'}}>
+                        <div style={{fontSize:40}}>📉</div>
+                        <p>Chưa có dữ liệu chấm điểm trong khoảng thời gian này.</p>
+                    </div>
+                )}
             </div>
         </div>
     );

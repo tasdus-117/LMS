@@ -148,36 +148,54 @@ app.put('/api/submissions/:id', async (req, res) => { res.json(await Submission.
 app.get('/api/all-submissions', async (req, res) => { res.json(await Submission.find().populate('studentId', 'fullName')); });
 app.get('/api/teacher/stats', async (req, res) => {
     try {
-        // 1. Lấy tất cả bài nộp đã có điểm
-        const submissions = await Submission.find({ grade: { $ne: null } }).populate('studentId', 'fullName');
+        const { range } = req.query; // Nhận tham số range: 'day', 'month', 'semester', 'all'
         
-        // 2. Tính toán thủ công (Group by Student)
-        const stats = {};
+        // 1. Xác định mốc thời gian bắt đầu (startDate)
+        let startDate = null;
+        const now = new Date();
         
-        submissions.forEach(sub => {
-            if (!sub.studentId) return; // Bỏ qua nếu user bị xóa
-            const sId = sub.studentId._id;
-            const sName = sub.studentId.fullName;
+        if (range === 'day') {
+            // Lấy từ 00:00 sáng hôm nay
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+        } else if (range === 'month') {
+            // Lấy từ ngày mùng 1 của tháng này
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (range === 'semester') {
+            // Lấy từ 6 tháng trước
+            startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 6);
+        }
+        // Nếu range === 'all' hoặc không có range thì startDate = null (Lấy tất cả)
 
+        // 2. Tạo bộ lọc
+        const filter = { grade: { $ne: null } }; // Chỉ lấy bài đã có điểm
+        
+        if (startDate) {
+            filter.submittedAt = { $gte: startDate }; // $gte: Lớn hơn hoặc bằng ngày bắt đầu
+        }
+
+        // 3. Truy vấn Database
+        const submissions = await Submission.find(filter).populate('studentId', 'fullName');
+        
+        // 4. Tính toán Group by Student (Giống code cũ)
+        const stats = {};
+        submissions.forEach(sub => {
+            if (!sub.studentId) return;
+            const sId = sub.studentId._id;
             if (!stats[sId]) {
-                stats[sId] = { 
-                    _id: sId, 
-                    name: sName, 
-                    totalScore: 0, 
-                    count: 0 
-                };
+                stats[sId] = { _id: sId, name: sub.studentId.fullName, totalScore: 0, count: 0 };
             }
             stats[sId].totalScore += sub.grade;
             stats[sId].count += 1;
         });
 
-        // 3. Chuyển thành mảng và tính điểm TB
+        // 5. Chuyển thành mảng và tính điểm TB
         const result = Object.values(stats).map(s => ({
             ...s,
-            avg: (s.totalScore / s.count).toFixed(2) // Làm tròn 2 số thập phân
+            avg: (s.totalScore / s.count).toFixed(2)
         }));
 
-        // 4. Sắp xếp: Điểm TB cao xếp trước. Nếu bằng điểm thì ai làm nhiều bài hơn xếp trước.
+        // 6. Sắp xếp (Điểm cao nhất -> Số bài nhiều nhất)
         result.sort((a, b) => b.avg - a.avg || b.count - a.count);
 
         res.json(result);
