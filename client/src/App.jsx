@@ -539,16 +539,87 @@ function StudentClassDashboard({ user }) {
                 ))}
 
                 {/* TAB BÀI TẬP */}
-                {tab === 'work' && <div className="card-grid">
-                    {detailData.asms.map(asm => (
-                        <div key={asm._id} className="course-card">
-                            <h3>{asm.title}</h3>
-                            <p style={{fontSize:12, color:'gray'}}>{asm.description}</p>
-                            <StudentSubmitArea user={user} assignment={asm} classId={selectedClass._id} />
+                {tab === 'work' && (
+                    <div>
+                            <div className="course-card">
+                            <input className="form-input" placeholder="Tên bài tập mới..." value={content} onChange={e=>setContent(e.target.value)} />
+                            <button className="btn-primary" onClick={()=>handlePost('assignment')}>Giao bài</button>
                         </div>
-                    ))}
-                    {detailData.asms.length === 0 && <p>Chưa có bài tập nào.</p>}
-                </div>}
+                        
+                        <div className="card-grid">
+                            {detailData.asms.map(asm => {
+                                // 👇 LOGIC LỌC BÀI CHẮC CHẮN HƠN
+                                const subsForThisAsm = classSubmissions.filter(s => {
+                                    // Lấy ID bài tập từ submission (dù nó là object hay string)
+                                    const sAsmId = s.assignmentId?._id || s.assignmentId;
+                                    return sAsmId === asm._id;
+                                });
+                                
+                                const isExpanded = expandedAsmId === asm._id;
+
+                                return (
+                                    <div key={asm._id} className="course-card" style={{gridColumn: isExpanded ? '1 / -1' : 'auto'}}>
+                                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                            <div>
+                                                <h3>{asm.title}</h3>
+                                                <small style={{color:'gray'}}>Đã nộp: <b>{subsForThisAsm.length}</b></small>
+                                            </div>
+                                            <div style={{display:'flex', gap:5}}>
+                                                <button className="btn-upload" onClick={() => setExpandedAsmId(isExpanded ? null : asm._id)}>
+                                                    {isExpanded ? 'Đóng lại' : '👁️ Chấm bài'}
+                                                </button>
+                                                <button className="btn-upload" style={{color:'red'}} onClick={()=>handleDeleteAsm(asm._id)}>🗑️</button>
+                                            </div>
+                                        </div>
+
+                                        {/* KHU VỰC CHẤM ĐIỂM */}
+                                        {isExpanded && (
+                                            <div style={{marginTop:15, borderTop:'1px solid #eee', paddingTop:15}}>
+                                                {subsForThisAsm.length === 0 ? (
+                                                    <p style={{color:'gray', fontStyle:'italic'}}>Chưa có học sinh nào nộp bài này.</p>
+                                                ) : (
+                                                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(250px, 1fr))', gap:10}}>
+                                                        {subsForThisAsm.map(sub => {
+                                                            // Xử lý hiển thị nhiều ảnh hoặc 1 ảnh
+                                                            const images = sub.imageUrls && sub.imageUrls.length > 0 ? sub.imageUrls : (sub.imageUrl ? [sub.imageUrl] : []);
+
+                                                            return (
+                                                                <div key={sub._id} style={{background:'#f8fafc', padding:10, borderRadius:8, border:'1px solid #e2e8f0'}}>
+                                                                    <div style={{fontWeight:700, marginBottom:5, color:'#334155'}}>👤 {sub.studentName}</div>
+                                                                    
+                                                                    {/* Danh sách ảnh */}
+                                                                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(60px, 1fr))', gap:5, marginBottom:10}}>
+                                                                        {images.map((img, idx) => (
+                                                                            <a key={idx} href={img} target="_blank" rel="noreferrer">
+                                                                                <img src={img} style={{width:'100%', height:60, objectFit:'cover', borderRadius:4, border:'1px solid #cbd5e1'}} />
+                                                                            </a>
+                                                                        ))}
+                                                                    </div>
+                                                                    
+                                                                    {/* Form chấm điểm */}
+                                                                    <div style={{background:'white', padding:8, borderRadius:6}}>
+                                                                        <div style={{display:'flex', gap:5, marginBottom:5}}>
+                                                                            <input id={`g-${sub._id}`} className="form-input" type="number" defaultValue={sub.grade} placeholder="Điểm" style={{width:'60px', textAlign:'center', fontWeight:'bold'}} />
+                                                                            <input id={`f-${sub._id}`} className="form-input" defaultValue={sub.feedback} placeholder="Nhận xét..." style={{flex:1}} />
+                                                                        </div>
+                                                                        <button className="btn-primary" style={{width:'100%', padding:5, fontSize:12}} 
+                                                                            onClick={() => handleGrade(sub._id, document.getElementById(`g-${sub._id}`).value, document.getElementById(`f-${sub._id}`).value)}>
+                                                                            Lưu chấm
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
