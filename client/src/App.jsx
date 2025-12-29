@@ -239,4 +239,34 @@ function StudentSubmitArea({ user, assignment, classId }) {
 // Component con: Khu vực chấm bài của GV
 function TeacherGrading({ classId }) {
     const [submissions, setSubmissions] = useState([]);
-    useEffect(() => { axios.get(`${API_URL}/classes/${classId}/submissions`).then(
+    useEffect(() => { axios.get(`${API_URL}/classes/${classId}/submissions`).then(res => setSubmissions(res.data)); }, [classId]);
+
+    const gradeSub = async (id, grade, feedback) => {
+        await axios.put(`${API_URL}/submissions/${id}`, { grade, feedback });
+        alert("Đã lưu điểm!");
+    };
+
+    return (
+        <div className="card-grid">
+            {submissions.map(sub => (
+                <div key={sub._id} className="course-card">
+                    <div style={{fontSize:12, fontWeight:700}}>👤 {sub.studentName}</div>
+                    <div style={{fontSize:11, color:'gray', marginBottom:5}}>Bài: {sub.assignmentId?.title}</div>
+                    <a href={sub.imageUrl} target="_blank" rel="noreferrer"><img src={sub.imageUrl} style={{width:'100%', height:100, objectFit:'cover'}}/></a>
+                    <input id={`g-${sub._id}`} className="form-input" type="number" defaultValue={sub.grade} placeholder="Điểm" />
+                    <input id={`f-${sub._id}`} className="form-input" defaultValue={sub.feedback} placeholder="Nhận xét" />
+                    <button className="btn-primary" onClick={()=>gradeSub(sub._id, document.getElementById(`g-${sub._id}`).value, document.getElementById(`f-${sub._id}`).value)}>Lưu chấm</button>
+                </div>
+            ))}
+            {submissions.length === 0 && <p>Chưa có bài nộp nào.</p>}
+        </div>
+    );
+}
+
+// CÁC COMPONENT PHỤ (Auth, Sidebar...) GIỮ NGUYÊN HOẶC RÚT GỌN NHƯ SAU:
+function AuthPage({onLogin}){const[tab,setTab]=useState('login');const[form,setForm]=useState({});const sub=async()=>{try{const ep=tab==='register'?'/register':'/login';const r=await axios.post(`${API_URL}${ep}`,form);if(tab==='register'){alert("ĐK thành công");setTab('login')}else onLogin(r.data)}catch(e){alert("Lỗi")}};return(<div className="auth-container"><div className="auth-form-box"><h2>LMS Class</h2><input className="form-input" placeholder="User" onChange={e=>setForm({...form,username:e.target.value})}/><input className="form-input" type="password" placeholder="Pass" onChange={e=>setForm({...form,password:e.target.value})}/>{tab==='register'&&<input className="form-input" placeholder="Name" onChange={e=>setForm({...form,fullName:e.target.value})}/>}<button className="btn-primary" onClick={sub}>OK</button><p onClick={()=>setTab(tab==='login'?'register':'login')} style={{cursor:'pointer',textAlign:'center',marginTop:10}}>{tab==='login'?'Đăng ký ngay':'Quay lại'}</p></div></div>)}
+function Sidebar({user,onLogout}){return(<div className="sidebar-container"><div className="hamburger-trigger">☰ MENU</div><div className="sidebar-panel"><div className="sidebar-content"><h3>Xin chào, {user.fullName}</h3><div className="menu-item" onClick={onLogout} style={{color:'red'}}>Đăng xuất</div></div></div></div>)}
+function Header({user}){return <header className="top-header" style={{justifyContent:'flex-end'}}><div className="user-profile">{user.fullName} ({user.role})</div></header>}
+function AdminView(){return <div>Trang Admin (Dùng code cũ nếu cần)</div>}
+
+export default App;
