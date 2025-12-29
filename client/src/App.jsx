@@ -166,9 +166,17 @@ function Sidebar({ user, activePage, setActivePage, onLogout }) {
 
                     {/* Admin xem quản lý GV */}
                     {user.role === 'ADMIN' && (
-                        <div className={`menu-item ${activePage==='teachers'?'active':''}`} onClick={()=>handleSelect('teachers')}>
-                            👨‍🏫 Quản lý Giáo viên
-                        </div>
+                        <>
+                            {/* Menu Tổng quan (Để đổi mật khẩu bản thân) */}
+                            <div className={`menu-item ${activePage==='dashboard'?'active':''}`} onClick={()=>setActivePage('dashboard')}>
+                                🏠 Tổng quan
+                            </div>
+                            
+                            {/* Menu Quản lý Giáo viên */}
+                            <div className={`menu-item ${activePage==='teachers'?'active':''}`} onClick={()=>setActivePage('teachers')}>
+                                👨‍🏫 Quản lý Giáo viên
+                            </div>
+                        </>
                     )}
 
                     <div className="menu-item" style={{color:'red', marginTop:20, borderTop:'1px solid #eee', paddingTop:10}} onClick={onLogout}>
@@ -183,8 +191,155 @@ function Header({user}){return <header className="top-header" style={{justifyCon
 
 // 2. ADMIN VIEW (GIỮ NGUYÊN HOẶC DÙNG CODE BẠN ĐÃ CÓ)
 function AdminView({ user, activePage }) {
-    if(activePage === 'users') return <TeacherView user={user} activePage="users" />; // Admin dùng ké view quản lý user của Teacher
-    return <div>Chọn menu Quản lý User để thêm GV</div>;
+    // 1. Nếu chọn menu Quản lý Giáo viên
+    if (activePage === 'teachers') {
+        return <AdminTeacherManager />;
+    }
+
+    // 2. Mặc định: Dashboard (Chứa chức năng đổi mật khẩu Admin)
+    return <AdminDashboard user={user} />;
+}
+
+// --- COMPONENT 1: DASHBOARD & ĐỔI MẬT KHẨU ADMIN ---
+function AdminDashboard({ user }) {
+    const [pass, setPass] = useState('');
+
+    const handleChangePass = async () => {
+        if (!pass) return alert("Vui lòng nhập mật khẩu mới!");
+        try {
+            await axios.put(`${API_URL}/users/${user._id}/reset-password`, { newPassword: pass });
+            alert("✅ Đổi mật khẩu thành công! Lần sau hãy đăng nhập bằng mật khẩu mới.");
+            setPass('');
+        } catch (e) {
+            alert("Lỗi khi đổi mật khẩu");
+        }
+    };
+
+    return (
+        <div>
+            <div className="welcome-banner" style={{background:'#fee2e2', borderColor:'#ef4444'}}>
+                <h1 style={{color:'#b91c1c'}}>🛡️ Trang Quản Trị Viên</h1>
+                <p>Xin chào <b>{user.fullName}</b>, bạn có toàn quyền quản lý hệ thống.</p>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20}}>
+                {/* Thống kê nhanh */}
+                <div className="course-card">
+                    <h3>⚡ Truy cập nhanh</h3>
+                    <p>Chọn <b>"Quản lý Giáo viên"</b> ở menu bên trái để cấp tài khoản cho thầy cô.</p>
+                </div>
+
+                {/* Đổi mật khẩu bản thân */}
+                <div className="course-card" style={{borderLeft:'4px solid #ef4444'}}>
+                    <h3 style={{marginTop:0, color:'#b91c1c'}}>🔑 Đổi mật khẩu Admin</h3>
+                    <p style={{fontSize:12, color:'gray'}}>Cập nhật mật khẩu đăng nhập của bạn.</p>
+                    
+                    <input 
+                        className="form-input" 
+                        type="password"
+                        placeholder="Nhập mật khẩu mới..." 
+                        value={pass} 
+                        onChange={e => setPass(e.target.value)} 
+                    />
+                    <button className="btn-upload" style={{width:'100%', color:'white', background:'#ef4444', borderColor:'#ef4444'}} onClick={handleChangePass}>
+                        Lưu mật khẩu
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- COMPONENT 2: QUẢN LÝ GIÁO VIÊN ---
+function AdminTeacherManager() {
+    const [teachers, setTeachers] = useState([]);
+    const [form, setForm] = useState({ username: '', password: '', fullName: '' });
+
+    useEffect(() => { loadTeachers(); }, []);
+
+    const loadTeachers = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/users?role=TEACHER`);
+            setTeachers(res.data);
+        } catch(e) { console.error(e); }
+    };
+
+    const handleCreate = async () => {
+        if(!form.username || !form.password || !form.fullName) return alert("Vui lòng điền đủ thông tin!");
+        try {
+            await axios.post(`${API_URL}/admin/create-teacher`, form);
+            alert("✅ Đã tạo tài khoản Giáo viên!");
+            setForm({ username: '', password: '', fullName: '' });
+            loadTeachers();
+        } catch(e) { alert("Lỗi: Tên đăng nhập có thể đã trùng."); }
+    };
+
+    const handleDelete = async (id) => {
+        if(window.confirm("Xóa tài khoản giáo viên này? (Các lớp học của GV này cũng có thể bị ảnh hưởng)")) {
+            await axios.delete(`${API_URL}/users/${id}`);
+            loadTeachers();
+        }
+    };
+
+    const handleResetPass = async (id, name) => {
+        const newPass = prompt(`Nhập mật khẩu mới cho GV ${name}:`, "123456");
+        if(newPass) {
+            await axios.put(`${API_URL}/users/${id}/reset-password`, { newPassword: newPass });
+            alert("Đã đổi mật khẩu thành công!");
+        }
+    };
+
+    return (
+        <div style={{display:'grid', gridTemplateColumns:'65% 34%', gap:'1%'}}>
+            {/* DANH SÁCH GIÁO VIÊN */}
+            <div>
+                <div className="section-title">👨‍🏫 Danh sách Giáo viên ({teachers.length})</div>
+                <div className="course-card">
+                    <table style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
+                        <thead>
+                            <tr style={{textAlign:'left', background:'#f8fafc', borderBottom:'2px solid #e2e8f0'}}>
+                                <th style={{padding:10}}>Họ tên</th>
+                                <th style={{padding:10}}>Username</th>
+                                <th style={{padding:10}}>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {teachers.map(t => (
+                                <tr key={t._id} style={{borderBottom:'1px solid #eee'}}>
+                                    <td style={{padding:10, fontWeight:600}}>{t.fullName}</td>
+                                    <td style={{padding:10}}>{t.username}</td>
+                                    <td style={{padding:10, display:'flex', gap:5}}>
+                                        <button className="btn-upload" style={{padding:'4px 8px'}} onClick={()=>handleResetPass(t._id, t.fullName)}>🔑 Pass</button>
+                                        <button className="btn-upload" style={{padding:'4px 8px', color:'red', borderColor:'red'}} onClick={()=>handleDelete(t._id)}>🗑️ Xóa</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {teachers.length === 0 && <p style={{color:'gray', padding:10}}>Chưa có giáo viên nào.</p>}
+                </div>
+            </div>
+
+            {/* FORM TẠO GIÁO VIÊN */}
+            <div>
+                <div className="course-card" style={{borderLeft:'4px solid #3b82f6', position:'sticky', top:20}}>
+                    <h3 style={{marginTop:0, color:'#1d4ed8'}}>➕ Thêm Giáo Viên</h3>
+                    <p style={{fontSize:12, color:'gray'}}>Cấp tài khoản giảng dạy mới.</p>
+                    
+                    <label style={{fontSize:12, fontWeight:600}}>Họ và tên hiển thị</label>
+                    <input className="form-input" value={form.fullName} onChange={e=>setForm({...form, fullName: e.target.value})} placeholder="VD: Thầy Nguyễn Văn A" />
+                    
+                    <label style={{fontSize:12, fontWeight:600}}>Tên đăng nhập</label>
+                    <input className="form-input" value={form.username} onChange={e=>setForm({...form, username: e.target.value})} placeholder="VD: gv_toan" />
+                    
+                    <label style={{fontSize:12, fontWeight:600}}>Mật khẩu</label>
+                    <input className="form-input" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} placeholder="VD: 123456" />
+                    
+                    <button className="btn-primary" onClick={handleCreate}>Tạo tài khoản</button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 // ============================================================================
