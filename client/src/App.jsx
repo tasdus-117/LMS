@@ -879,6 +879,7 @@ function StudentSubmitArea({ user, assignment, classId }) {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => { 
+        // Logic lấy bài nộp cũ (Giữ nguyên)
         axios.get(`${API_URL}/my-submissions?studentId=${user._id}&classId=${classId}`)
              .then(r => {
                  const mySub = r.data.find(s => String(s.assignmentId?._id || s.assignmentId) === String(assignment._id));
@@ -893,23 +894,48 @@ function StudentSubmitArea({ user, assignment, classId }) {
         setLoading(true);
         try {
             const uploadedUrls = [];
+            // Upload ảnh lên Cloudinary
             for (let i = 0; i < files.length; i++) {
-                const fd = new FormData(); fd.append("file", files[i]); fd.append("upload_preset", UPLOAD_PRESET);
+                const fd = new FormData(); 
+                fd.append("file", files[i]); 
+                fd.append("upload_preset", UPLOAD_PRESET);
                 const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, fd);
                 uploadedUrls.push(res.data.secure_url);
             }
-            await axios.post(`${API_URL}/submissions`, { classId, assignmentId: assignment._id, studentId: user._id, studentName: user.fullName, imageUrls: uploadedUrls });
-            alert("✅ Nộp bài thành công!"); window.location.reload();
-        } catch(e) { alert("Lỗi upload"); } finally { setLoading(false); }
+
+            // Gửi dữ liệu về Server
+            // 👇 QUAN TRỌNG: Lưu kết quả trả về vào biến res
+            const res = await axios.post(`${API_URL}/submissions`, { 
+                classId, 
+                assignmentId: assignment._id, 
+                studentId: user._id, 
+                studentName: user.fullName, 
+                imageUrls: uploadedUrls 
+            });
+
+            alert("✅ Nộp bài thành công!"); 
+            
+            // ❌ XÓA DÒNG NÀY: window.location.reload(); 
+            
+            // ✅ THÊM DÒNG NÀY: Cập nhật state trực tiếp để đổi giao diện ngay lập tức
+            setSub(res.data); 
+
+        } catch(e) { 
+            console.error(e);
+            alert("Lỗi khi nộp bài"); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     if (checking) return <div style={{fontSize:12, color:'gray'}}>⏳...</div>;
 
+    // ... (Phần hiển thị bên dưới GIỮ NGUYÊN) ...
     if (sub) {
         const images = sub.imageUrls && sub.imageUrls.length > 0 ? sub.imageUrls : (sub.imageUrl ? [sub.imageUrl] : []);
         return (
             <div style={{marginTop:10, padding:10, background: sub.grade !== null ? '#f0fdf4' : '#fffbeb', borderRadius:8, border: sub.grade !== null ? '1px solid #bbf7d0' : '1px solid #fde68a'}}>
-                <div style={{fontWeight:700, color: sub.grade !== null ? '#15803d' : '#b45309', fontSize:13}}>{sub.grade !== null ? '✅ Đã chấm' : '⏳ Chờ chấm'}</div>
+                <div style={{fontWeight:700, color: sub.grade !== null ? '#15803d' : '#b45309', fontSize:13}}>{sub.grade !== null ? '✅ Đã chấm' : '⏳ Đã nộp, chờ chấm'}</div>
                 <div style={{display:'flex', gap:5, overflowX:'auto', marginTop:5}}>
                     {images.map((img, idx) => (<a key={idx} href={img} target="_blank" rel="noreferrer"><img src={img} style={{width:50, height:50, objectFit:'cover', borderRadius:4, border:'1px solid #ccc'}} /></a>))}
                 </div>
@@ -918,7 +944,7 @@ function StudentSubmitArea({ user, assignment, classId }) {
         );
     }
     return (
-        <label className="btn-upload" style={{marginTop:10, textAlign:'center', display:'block', background:'#eff6ff', color:'#2563eb', border:'1px dashed #bfdbfe'}}>
+        <label className="btn-upload" style={{marginTop:10, textAlign:'center', display:'block', background:'#eff6ff', color:'#2563eb', border:'1px dashed #bfdbfe', cursor: loading ? 'wait' : 'pointer'}}>
             {loading ? 'Đang tải lên...' : '☁️ Nộp bài (Chọn nhiều ảnh)'}
             <input type="file" multiple hidden onChange={e => handleUpload(e.target.files)} disabled={loading} />
         </label>
