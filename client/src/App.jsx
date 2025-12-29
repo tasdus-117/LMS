@@ -7,42 +7,56 @@ const API_URL = 'https://lms-backend-fmhz.onrender.com/api';
 const CLOUD_NAME = "ddytwonba"; 
 const UPLOAD_PRESET = "ddytwonba"; 
 
+Vấn đề bạn gặp phải là do ứng dụng hiện tại đang lưu trạng thái trang (activePage) trong bộ nhớ tạm (RAM). Khi bạn F5 (tải lại trang), bộ nhớ bị xóa sạch và nó quay về mặc định là dashboard. Ngoài ra, vì không thay đổi URL nên trình duyệt không lưu lịch sử để bạn bấm nút Back/Forward.
+
+Để giải quyết cả 2 vấn đề này (F5 giữ nguyên trang & Nút Back hoạt động) mà không cần cài thêm thư viện, chúng ta sẽ sử dụng kỹ thuật URL Hash (thêm dấu # vào đường dẫn).
+
+Bạn chỉ cần sửa đoạn đầu của hàm App trong file client/src/App.jsx.
+
+Cập nhật client/src/App.jsx
+Tìm đến function App() và thay thế toàn bộ phần khai báo state ban đầu bằng đoạn code này:
+
+JavaScript
+
+// --- TÌM ĐOẠN ĐẦU CỦA FUNCTION App() VÀ THAY THẾ ---
+
 function App() {
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('lms_user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  // 1. SỬA: Lấy trang hiện tại từ URL (nếu có), nếu không thì mặc định là 'dashboard'
+  // 1. SỬA: Lấy trang hiện tại từ URL (sau dấu #), nếu không có thì mặc định là 'dashboard'
   const [activePage, setActivePage] = useState(() => {
-      // Lấy phần chữ sau dấu # (ví dụ #stats -> stats)
       const hash = window.location.hash.replace('#', '');
       return hash || 'dashboard';
   });
 
-  // 2. THÊM: Theo dõi sự thay đổi của activePage để cập nhật URL
+  // 2. THÊM: Mỗi khi activePage thay đổi -> Cập nhật lên URL
   useEffect(() => {
       if (user) {
           window.location.hash = activePage;
       }
   }, [activePage, user]);
 
-  // 3. THÊM: Lắng nghe khi người dùng bấm nút Back/Forward của trình duyệt
+  // 3. THÊM: Lắng nghe sự kiện bấm nút Back/Forward của trình duyệt
   useEffect(() => {
       const handleHashChange = () => {
           const hash = window.location.hash.replace('#', '');
           if (hash) setActivePage(hash);
       };
 
+      // Đăng ký sự kiện
       window.addEventListener('hashchange', handleHashChange);
-      // Dọn dẹp sự kiện khi component bị hủy
+      
+      // Hủy đăng ký khi thoát
       return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const handleLogin = (userData) => {
     localStorage.setItem('lms_user', JSON.stringify(userData));
     setUser(userData);
-    // Khi login xong, đưa về dashboard
+    // Khi đăng nhập xong, đưa về dashboard và set hash
     setActivePage('dashboard');
     window.location.hash = 'dashboard';
   };
@@ -50,7 +64,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('lms_user');
     setUser(null);
-    window.location.hash = ''; // Xóa hash khi đăng xuất cho sạch đẹp
+    window.location.hash = ''; // Xóa hash khi đăng xuất cho sạch
   };
 
   if (!user) return <AuthPage onLogin={handleLogin} />;
