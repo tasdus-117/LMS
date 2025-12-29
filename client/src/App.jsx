@@ -470,34 +470,135 @@ function TeacherGrading({ classId }) {
 }
 
 // --- COMPONENT CON 2: THỐNG KÊ (Stats) ---
+Tuyệt vời! Đây là tính năng rất cần thiết để kết thúc một học kỳ hoặc một đợt thi đua.
+
+Ý tưởng thực hiện sẽ như sau:
+
+Nút Reset: Khi bấm vào sẽ hiện hộp thoại hỏi.
+
+Lựa chọn 1 (Backup): Hệ thống hỏi "Bạn có muốn tải file CSV điểm số về không?".
+
+Nếu chọn OK (Có): Tải file về máy, sau đó mới xóa.
+
+Nếu chọn Cancel (Không): Bỏ qua bước tải, xóa luôn.
+
+Hành động Xóa: Xóa sạch bảng Submission (Bài nộp/Điểm) và Assignment (Bài tập) để Bảng xếp hạng về 0.
+
+Dưới đây là code chi tiết:
+
+BƯỚC 1: Cập nhật Backend (server/index.js)
+Bạn thêm 2 API vào cuối file (trước app.listen) để phục vụ việc xuất file và xóa dữ liệu.
+
+JavaScript
+
+// --- THÊM VÀO server/index.js ---
+
+// 1. API XUẤT CSV (BẢNG ĐIỂM CHI TIẾT)
+app.get('/api/export-csv', async (req, res) => {
+    try {
+        const submissions = await Submission.find()
+            .populate('studentId', 'fullName username')
+            .populate('assignmentId', 'title')
+            .populate('classId', 'name');
+
+        // Thêm BOM \uFEFF để Excel mở tiếng Việt không bị lỗi font
+        let csv = '\uFEFFHọc sinh,Tên đăng nhập,Lớp,Bài tập,Điểm,Nhận xét,Ngày nộp\n';
+
+        submissions.forEach(sub => {
+            if (!sub.studentId) return;
+            const row = [
+                `"${sub.studentId.fullName}"`,
+                `"${sub.studentId.username}"`,
+                `"${sub.classId?.name || 'N/A'}"`,
+                `"${sub.assignmentId?.title || 'Đã xóa'}"`,
+                `"${sub.grade ?? 'Chưa chấm'}"`,
+                `"${sub.feedback || ''}"`,
+                `"${new Date(sub.submittedAt).toLocaleDateString()}"`
+            ];
+            csv += row.join(',') + '\n';
+        });
+
+        res.header('Content-Type', 'text/csv');
+        res.header('Content-Disposition', 'attachment; filename="bang_diem.csv"');
+        res.send(csv);
+    } catch (e) { res.status(500).send("Lỗi xuất file"); }
+});
+
+// 2. API RESET BẢNG XẾP HẠNG (Xóa điểm + Bài tập, Giữ lại User + Lớp)
+app.delete('/api/reset-leaderboard', async (req, res) => {
+    try {
+        // Xóa sạch bài nộp (Điểm số về 0)
+        await Submission.deleteMany({});
+        
+        // Tùy chọn: Xóa luôn bài tập cũ để bắt đầu kỳ mới sạch sẽ
+        await Assignment.deleteMany({});
+        
+        // Tùy chọn: Xóa thông báo cũ
+        await Announcement.deleteMany({});
+
+        res.json({ message: "Đã reset bảng xếp hạng và dữ liệu học tập!" });
+    } catch (e) { res.status(500).json({ message: "Lỗi server" }); }
+});
+BƯỚC 2: Cập nhật Frontend (TeacherStats)
+Bạn thay thế component TeacherStats trong client/src/App.jsx bằng đoạn code này. Mình đã thêm nút "⚠️ Reset Kỳ Mới" với logic hỏi Backup như bạn yêu cầu.
+
+JavaScript
+
+// --- THAY THẾ COMPONENT TeacherStats ---
+
 function TeacherStats() {
     const [stats, setStats] = useState([]);
-    const [range, setRange] = useState('all'); // all | day | month | semester
+    const [range, setRange] = useState('all'); 
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        loadStats();
-    }, [range]); // Khi 'range' thay đổi, hàm này sẽ tự chạy lại
+    useEffect(() => { loadStats(); }, [range]);
 
     const loadStats = async () => {
         setLoading(true);
         try {
-            // Gửi tham số range lên server
             const res = await axios.get(`${API_URL}/teacher/stats?range=${range}`);
             setStats(res.data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
+        } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
-    // Hàm lấy tên hiển thị cho đẹp
-    const getLabel = () => {
-        if (range === 'day') return "Hôm nay";
-        if (range === 'month') return "Tháng này";
-        if (range === 'semester') return "Kỳ này (6 tháng)";
-        return "Toàn thời gian";
+    // --- LOGIC RESET + BACKUP CSV ---
+    const handleResetLeaderboard = async () => {
+        // 1. Xác nhận hành động nguy hiểm
+        const confirmAction = window.confirm("⚠️ CẢNH BÁO: Bạn đang muốn RESET Bảng Xếp Hạng?\n\nHành động này sẽ XÓA VĨNH VIỄN:\n- Tất cả bài nộp và điểm số.\n- Tất cả bài tập cũ.\n\n(Tài khoản Học sinh và Lớp học vẫn được giữ nguyên).");
+        
+        if (!confirmAction) return;
+
+        // 2. Hỏi người dùng có muốn lưu file CSV không?
+        const wantBackup = window.confirm("💾 BẠN CÓ MUỐN TẢI FILE CSV (EXCEL) ĐIỂM SỐ VỀ MÁY TRƯỚC KHI XÓA KHÔNG?\n\n- Bấm OK: Tải file về rồi mới xóa.\n- Bấm Cancel (Hủy): Xóa luôn không cần lưu.");
+
+        if (wantBackup) {
+            try {
+                // Thực hiện tải file
+                const response = await axios.get(`${API_URL}/export-csv`, { responseType: 'blob' });
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `Bang_Diem_Backup_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                
+                // Đợi 1 chút cho tải xong rồi mới xóa
+                alert("✅ Đã tải file backup! Bấm OK để tiến hành xóa dữ liệu...");
+            } catch (e) {
+                alert("❌ Lỗi khi tải file. Hủy bỏ quá trình xóa để bảo toàn dữ liệu.");
+                return;
+            }
+        }
+
+        // 3. Gọi API xóa dữ liệu
+        try {
+            await axios.delete(`${API_URL}/reset-leaderboard`);
+            alert("✨ Đã Reset thành công! Bảng xếp hạng đã về 0.");
+            loadStats(); // Tải lại bảng trống
+        } catch (e) {
+            alert("Lỗi khi reset hệ thống.");
+        }
     };
 
     return (
@@ -506,53 +607,27 @@ function TeacherStats() {
             <div className="welcome-banner" style={{background:'#fef3c7', borderColor:'#f59e0b', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10}}>
                 <div>
                     <h1 style={{color:'#b45309', margin:0}}>🏆 Bảng Xếp Hạng</h1>
-                    <p style={{color:'#92400e', margin:0}}>Dữ liệu: <b>{getLabel()}</b></p>
+                    <p style={{color:'#92400e', margin:0}}>Thống kê thi đua học tập</p>
                 </div>
                 
-                {/* THANH CÔNG CỤ BỘ LỌC */}
-                <div style={{display:'flex', gap:5, background:'white', padding:5, borderRadius:8, border:'1px solid #fde68a'}}>
-                    <button 
-                        onClick={() => setRange('day')}
-                        className={range === 'day' ? 'btn-primary' : 'btn-upload'}
-                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
-                    >
-                        Hôm nay
-                    </button>
-                    <button 
-                        onClick={() => setRange('month')}
-                        className={range === 'month' ? 'btn-primary' : 'btn-upload'}
-                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
-                    >
-                        Tháng này
-                    </button>
-                    <button 
-                        onClick={() => setRange('semester')}
-                        className={range === 'semester' ? 'btn-primary' : 'btn-upload'}
-                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
-                    >
-                        Học kỳ
-                    </button>
-                    <button 
-                        onClick={() => setRange('all')}
-                        className={range === 'all' ? 'btn-primary' : 'btn-upload'}
-                        style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}
-                    >
-                        🔁 Tất cả
-                    </button>
+                <div style={{display:'flex', gap:5}}>
+                    {['day', 'month', 'semester', 'all'].map(r => (
+                        <button key={r} onClick={() => setRange(r)} className={range === r ? 'btn-primary' : 'btn-upload'} style={{fontSize:12, padding:'5px 10px', width:'auto', margin:0}}>
+                            {r === 'day' ? 'Hôm nay' : r === 'month' ? 'Tháng này' : r === 'semester' ? 'Học kỳ' : 'Tất cả'}
+                        </button>
+                    ))}
                 </div>
             </div>
 
             {/* Bảng dữ liệu */}
             <div className="course-card">
-                {loading ? (
-                    <div style={{textAlign:'center', padding:20, color:'gray'}}>⏳ Đang tính toán dữ liệu...</div>
-                ) : (
+                {loading ? <div style={{textAlign:'center', padding:20, color:'gray'}}>⏳ Đang tính toán...</div> : (
                     <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
                         <thead>
                             <tr style={{background:'#fffbeb', textAlign:'left', borderBottom:'2px solid #fde68a'}}>
                                 <th style={{padding:10}}>Hạng</th>
                                 <th style={{padding:10}}>Học sinh</th>
-                                <th style={{padding:10, textAlign:'center'}}>Số bài làm</th>
+                                <th style={{padding:10, textAlign:'center'}}>Số bài</th>
                                 <th style={{padding:10, textAlign:'center'}}>Điểm TB</th>
                                 <th style={{padding:10}}>Danh hiệu</th>
                             </tr>
@@ -560,34 +635,37 @@ function TeacherStats() {
                         <tbody>
                             {stats.map((s, i) => (
                                 <tr key={i} style={{borderBottom:'1px solid #eee'}}>
-                                    <td style={{padding:10}}>
-                                        {i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
-                                    </td>
+                                    <td style={{padding:10}}>{i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
                                     <td style={{padding:10, fontWeight:600}}>{s.name}</td>
                                     <td style={{padding:10, textAlign:'center'}}>{s.count}</td>
                                     <td style={{padding:10, textAlign:'center', fontWeight:700, color:'#d97706'}}>{s.avg}</td>
                                     <td style={{padding:10}}>
-                                        {s.avg >= 9 ? <span className="tag tag-green">🔥 Cao thủ</span> : 
-                                         s.avg >= 8 ? <span className="tag tag-green">Giỏi</span> : 
-                                         s.avg >= 6.5 ? <span className="tag" style={{background:'#dbeafe', color:'#1e40af'}}>Khá</span> : 
-                                         <span className="tag" style={{background:'#f3f4f6', color:'gray'}}>Cố lên</span>}
+                                        {s.avg>=9?<span className="tag tag-green">Xuất sắc</span>:s.avg>=8?<span className="tag tag-green">Giỏi</span>:s.avg>=6.5?<span className="tag" style={{background:'#dbeafe', color:'#1e40af'}}>Khá</span>:<span className="tag" style={{background:'#f3f4f6', color:'gray'}}>Cố lên</span>}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 )}
-                {!loading && stats.length === 0 && (
-                    <div style={{textAlign:'center', padding:30, color:'#9ca3af'}}>
-                        <div style={{fontSize:40}}>📉</div>
-                        <p>Chưa có dữ liệu chấm điểm trong khoảng thời gian này.</p>
-                    </div>
-                )}
+                {!loading && stats.length === 0 && <p style={{textAlign:'center', color:'gray', padding:20}}>Chưa có dữ liệu chấm điểm.</p>}
+            </div>
+
+            {/* NÚT RESET DỮ LIỆU (DANGER ZONE) */}
+            <div style={{marginTop:30, borderTop:'1px solid #eee', paddingTop:20, textAlign:'right'}}>
+                <button 
+                    onClick={handleResetLeaderboard}
+                    className="btn-upload"
+                    style={{color:'white', background:'#dc2626', borderColor:'#dc2626', fontWeight:'bold'}}
+                >
+                    ⚠️ Reset & Bắt đầu kỳ mới
+                </button>
+                <p style={{fontSize:11, color:'gray', marginTop:5}}>
+                    *Thao tác này sẽ xóa điểm số và bài tập cũ, nhưng giữ lại danh sách học sinh.
+                </p>
             </div>
         </div>
     );
 }
-
 // --- COMPONENT CON 3: QUẢN LÝ TÀI KHOẢN HỌC SINH ---
 function StudentManager() {
     const [students, setStudents] = useState([]);

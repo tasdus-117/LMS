@@ -241,4 +241,49 @@ app.put('/api/classes/:classId/remove-student', async (req, res) => {
         res.json({ message: "Đã xóa học sinh khỏi lớp" });
     } catch (e) { res.status(500).json({ message: "Lỗi" }); }
 });
+app.get('/api/export-csv', async (req, res) => {
+    try {
+        const submissions = await Submission.find()
+            .populate('studentId', 'fullName username')
+            .populate('assignmentId', 'title')
+            .populate('classId', 'name');
+
+        // Thêm BOM \uFEFF để Excel mở tiếng Việt không bị lỗi font
+        let csv = '\uFEFFHọc sinh,Tên đăng nhập,Lớp,Bài tập,Điểm,Nhận xét,Ngày nộp\n';
+
+        submissions.forEach(sub => {
+            if (!sub.studentId) return;
+            const row = [
+                `"${sub.studentId.fullName}"`,
+                `"${sub.studentId.username}"`,
+                `"${sub.classId?.name || 'N/A'}"`,
+                `"${sub.assignmentId?.title || 'Đã xóa'}"`,
+                `"${sub.grade ?? 'Chưa chấm'}"`,
+                `"${sub.feedback || ''}"`,
+                `"${new Date(sub.submittedAt).toLocaleDateString()}"`
+            ];
+            csv += row.join(',') + '\n';
+        });
+
+        res.header('Content-Type', 'text/csv');
+        res.header('Content-Disposition', 'attachment; filename="bang_diem.csv"');
+        res.send(csv);
+    } catch (e) { res.status(500).send("Lỗi xuất file"); }
+});
+
+// 2. API RESET BẢNG XẾP HẠNG (Xóa điểm + Bài tập, Giữ lại User + Lớp)
+app.delete('/api/reset-leaderboard', async (req, res) => {
+    try {
+        // Xóa sạch bài nộp (Điểm số về 0)
+        await Submission.deleteMany({});
+        
+        // Tùy chọn: Xóa luôn bài tập cũ để bắt đầu kỳ mới sạch sẽ
+        await Assignment.deleteMany({});
+        
+        // Tùy chọn: Xóa thông báo cũ
+        await Announcement.deleteMany({});
+
+        res.json({ message: "Đã reset bảng xếp hạng và dữ liệu học tập!" });
+    } catch (e) { res.status(500).json({ message: "Lỗi server" }); }
+});
 app.listen(5000, () => console.log('Server running on port 5000'));
