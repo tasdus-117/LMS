@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import './index.css';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://lms-backend-fmhz.onrender.com/api';
 // ⚠️ THAY CỦA BẠN VÀO ĐÂY
 const CLOUD_NAME = "ddytwonba"; 
 const UPLOAD_PRESET = "ddytwonba"; 
