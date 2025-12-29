@@ -535,18 +535,16 @@ function StudentManager() {
 // KHU VỰC CỦA HỌC SINH (STUDENT VIEW)
 // ============================================================================
 
-function StudentView({ user, activePage }) {
-    // ĐIỀU HƯỚNG
-    // Nếu menu chọn 'grades' -> Hiển thị Bảng điểm
-    if (activePage === 'grades') {
-        return <StudentGrades user={user} />;
-    }
+// ============================================================================
+// KHU VỰC CỦA HỌC SINH (STUDENT VIEW) - ĐÃ SỬA LỖI HIỂN THỊ NỘP BÀI
+// ============================================================================
 
-    // Mặc định: Hiển thị Danh sách lớp học
+function StudentView({ user, activePage }) {
+    if (activePage === 'grades') return <StudentGrades user={user} />;
     return <StudentClassDashboard user={user} />;
 }
 
-// --- COMPONENT 1: DASHBOARD LỚP HỌC (Logic cũ: Tham gia & Vào lớp) ---
+// 1. DASHBOARD LỚP HỌC CỦA HỌC SINH
 function StudentClassDashboard({ user }) {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState(null);
@@ -574,6 +572,9 @@ function StudentClassDashboard({ user }) {
 
     const openClass = async (cls) => {
         setSelectedClass(cls);
+        // Reset dữ liệu trước khi load
+        setDetailData({ anns: [], asms: [] });
+        
         const res = await axios.get(`${API_URL}/classes/${cls._id}/details`);
         setDetailData(res.data);
         setTab('stream');
@@ -596,93 +597,31 @@ function StudentClassDashboard({ user }) {
                 </div>
 
                 {/* TAB BẢNG TIN */}
-                {tab === 'stream' && detailData.anns.map(a => (
-                    <div key={a._id} className="course-card" style={{borderLeft:'4px solid orange'}}>
-                        <div style={{fontWeight:700, fontSize:13}}>{a.teacherId?.fullName} <span style={{fontWeight:400, color:'gray'}}>{new Date(a.createdAt).toLocaleString()}</span></div>
-                        <p style={{marginTop:5}}>{a.content}</p>
+                {tab === 'stream' && (
+                    <div>
+                        {detailData.anns.length === 0 && <p style={{color:'gray'}}>Chưa có thông báo nào.</p>}
+                        {detailData.anns.map(a => (
+                            <div key={a._id} className="course-card" style={{borderLeft:'4px solid orange'}}>
+                                <div style={{fontWeight:700, fontSize:13}}>{a.teacherId?.fullName} <span style={{fontWeight:400, color:'gray'}}>{new Date(a.createdAt).toLocaleString()}</span></div>
+                                <p style={{marginTop:5}}>{a.content}</p>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                )}
 
                 {/* TAB BÀI TẬP */}
                 {tab === 'work' && (
-                    <div>
-                            <div className="course-card">
-                            <input className="form-input" placeholder="Tên bài tập mới..." value={content} onChange={e=>setContent(e.target.value)} />
-                            <button className="btn-primary" onClick={()=>handlePost('assignment')}>Giao bài</button>
-                        </div>
-                        
-                        <div className="card-grid">
-                            {detailData.asms.map(asm => {
-                                // 👇 LOGIC LỌC BÀI CHẮC CHẮN HƠN
-                                const subsForThisAsm = classSubmissions.filter(s => {
-                                    // Lấy ID bài tập từ submission (dù nó là object hay string)
-                                    const sAsmId = s.assignmentId?._id || s.assignmentId;
-                                    return sAsmId === asm._id;
-                                });
+                    <div className="card-grid">
+                        {detailData.asms.length === 0 && <p>Chưa có bài tập nào.</p>}
+                        {detailData.asms.map(asm => (
+                            <div key={asm._id} className="course-card">
+                                <h3>{asm.title}</h3>
+                                <p style={{fontSize:12, color:'gray'}}>{asm.description}</p>
                                 
-                                const isExpanded = expandedAsmId === asm._id;
-
-                                return (
-                                    <div key={asm._id} className="course-card" style={{gridColumn: isExpanded ? '1 / -1' : 'auto'}}>
-                                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                            <div>
-                                                <h3>{asm.title}</h3>
-                                                <small style={{color:'gray'}}>Đã nộp: <b>{subsForThisAsm.length}</b></small>
-                                            </div>
-                                            <div style={{display:'flex', gap:5}}>
-                                                <button className="btn-upload" onClick={() => setExpandedAsmId(isExpanded ? null : asm._id)}>
-                                                    {isExpanded ? 'Đóng lại' : '👁️ Chấm bài'}
-                                                </button>
-                                                <button className="btn-upload" style={{color:'red'}} onClick={()=>handleDeleteAsm(asm._id)}>🗑️</button>
-                                            </div>
-                                        </div>
-
-                                        {/* KHU VỰC CHẤM ĐIỂM */}
-                                        {isExpanded && (
-                                            <div style={{marginTop:15, borderTop:'1px solid #eee', paddingTop:15}}>
-                                                {subsForThisAsm.length === 0 ? (
-                                                    <p style={{color:'gray', fontStyle:'italic'}}>Chưa có học sinh nào nộp bài này.</p>
-                                                ) : (
-                                                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(250px, 1fr))', gap:10}}>
-                                                        {subsForThisAsm.map(sub => {
-                                                            // Xử lý hiển thị nhiều ảnh hoặc 1 ảnh
-                                                            const images = sub.imageUrls && sub.imageUrls.length > 0 ? sub.imageUrls : (sub.imageUrl ? [sub.imageUrl] : []);
-
-                                                            return (
-                                                                <div key={sub._id} style={{background:'#f8fafc', padding:10, borderRadius:8, border:'1px solid #e2e8f0'}}>
-                                                                    <div style={{fontWeight:700, marginBottom:5, color:'#334155'}}>👤 {sub.studentName}</div>
-                                                                    
-                                                                    {/* Danh sách ảnh */}
-                                                                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(60px, 1fr))', gap:5, marginBottom:10}}>
-                                                                        {images.map((img, idx) => (
-                                                                            <a key={idx} href={img} target="_blank" rel="noreferrer">
-                                                                                <img src={img} style={{width:'100%', height:60, objectFit:'cover', borderRadius:4, border:'1px solid #cbd5e1'}} />
-                                                                            </a>
-                                                                        ))}
-                                                                    </div>
-                                                                    
-                                                                    {/* Form chấm điểm */}
-                                                                    <div style={{background:'white', padding:8, borderRadius:6}}>
-                                                                        <div style={{display:'flex', gap:5, marginBottom:5}}>
-                                                                            <input id={`g-${sub._id}`} className="form-input" type="number" defaultValue={sub.grade} placeholder="Điểm" style={{width:'60px', textAlign:'center', fontWeight:'bold'}} />
-                                                                            <input id={`f-${sub._id}`} className="form-input" defaultValue={sub.feedback} placeholder="Nhận xét..." style={{flex:1}} />
-                                                                        </div>
-                                                                        <button className="btn-primary" style={{width:'100%', padding:5, fontSize:12}} 
-                                                                            onClick={() => handleGrade(sub._id, document.getElementById(`g-${sub._id}`).value, document.getElementById(`f-${sub._id}`).value)}>
-                                                                            Lưu chấm
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                {/* GỌI COMPONENT NỘP BÀI Ở ĐÂY */}
+                                <StudentSubmitArea user={user} assignment={asm} classId={selectedClass._id} />
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
@@ -711,12 +650,103 @@ function StudentClassDashboard({ user }) {
             {showJoin && <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:9999}}>
                 <div className="auth-form-box" style={{background:'white', width:300}}>
                     <h3>Nhập Mã Lớp</h3>
-                    <input id="jcode" className="form-input" placeholder="Mã 6 ký tự (VD: X7K9...)" />
+                    <input id="jcode" className="form-input" placeholder="Mã 6 ký tự" />
                     <button className="btn-primary" onClick={()=>handleJoin(document.getElementById('jcode').value)}>Tham gia</button>
                     <button className="btn-upload" style={{color:'red', marginTop:10}} onClick={()=>setShowJoin(false)}>Hủy</button>
                 </div>
             </div>}
         </div>
+    );
+}
+
+// 2. COMPONENT NỘP BÀI (QUAN TRỌNG: ĐÃ SỬA ĐỂ HIỆN NÚT)
+function StudentSubmitArea({ user, assignment, classId }) {
+    const [sub, setSub] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [checking, setChecking] = useState(true); // Trạng thái đang kiểm tra xem nộp chưa
+
+    useEffect(() => { 
+        // Gọi API kiểm tra xem bài này HS đã nộp chưa
+        axios.get(`${API_URL}/my-submissions?studentId=${user._id}&classId=${classId}`)
+             .then(r => {
+                 const mySub = r.data.find(s => {
+                     const sAsmId = s.assignmentId?._id || s.assignmentId;
+                     return String(sAsmId) === String(assignment._id);
+                 });
+                 setSub(mySub);
+                 setChecking(false);
+             })
+             .catch(() => setChecking(false));
+    }, [assignment]);
+    
+    const handleUpload = async (files) => {
+        if (!files || files.length === 0) return;
+        setLoading(true);
+        try {
+            const uploadedUrls = [];
+            for (let i = 0; i < files.length; i++) {
+                const fd = new FormData(); 
+                fd.append("file", files[i]); 
+                fd.append("upload_preset", UPLOAD_PRESET);
+                const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, fd);
+                uploadedUrls.push(res.data.secure_url);
+            }
+
+            await axios.post(`${API_URL}/submissions`, { 
+                classId, 
+                assignmentId: assignment._id, 
+                studentId: user._id, 
+                studentName: user.fullName, 
+                imageUrls: uploadedUrls 
+            });
+            alert("✅ Nộp bài thành công!"); 
+            window.location.reload();
+        } catch(e) { alert("Lỗi upload"); }
+        finally { setLoading(false); }
+    };
+
+    if (checking) return <div style={{fontSize:12, color:'gray'}}>⏳ Đang kiểm tra trạng thái...</div>;
+
+    // TRƯỜNG HỢP 1: ĐÃ NỘP BÀI -> HIỆN KẾT QUẢ
+    if (sub) {
+        const images = sub.imageUrls && sub.imageUrls.length > 0 ? sub.imageUrls : (sub.imageUrl ? [sub.imageUrl] : []);
+        return (
+            <div style={{marginTop:10, padding:10, background: sub.grade !== null ? '#f0fdf4' : '#fffbeb', borderRadius:8, border: sub.grade !== null ? '1px solid #bbf7d0' : '1px solid #fde68a'}}>
+                <div style={{fontWeight:700, color: sub.grade !== null ? '#15803d' : '#b45309', fontSize:13}}>
+                    {sub.grade !== null ? '✅ Đã chấm điểm' : '⏳ Đã nộp, chờ chấm'}
+                </div>
+                
+                {/* Danh sách ảnh đã nộp */}
+                <div style={{display:'flex', gap:5, overflowX:'auto', marginTop:5}}>
+                    {images.map((img, idx) => (
+                        <a key={idx} href={img} target="_blank" rel="noreferrer">
+                            <img src={img} style={{width:50, height:50, objectFit:'cover', borderRadius:4, border:'1px solid #ccc'}} />
+                        </a>
+                    ))}
+                </div>
+
+                {sub.grade !== null && (
+                    <div style={{marginTop:8, paddingTop:8, borderTop:'1px solid #eee'}}>
+                        <b style={{fontSize:16, color:'#dc2626'}}>{sub.grade}đ</b>
+                        <span style={{fontSize:12, marginLeft:5, color:'#334155'}}>{sub.feedback}</span>
+                    </div>
+                )}
+            </div>
+        );
+    }
+    
+    // TRƯỜNG HỢP 2: CHƯA NỘP -> HIỆN NÚT UPLOAD (CHO PHÉP CHỌN NHIỀU)
+    return (
+        <label className="btn-upload" style={{marginTop:10, textAlign:'center', display:'block', background:'#eff6ff', color:'#2563eb', border:'1px dashed #bfdbfe'}}>
+            {loading ? 'Đang tải lên...' : '☁️ Nộp bài (Chọn nhiều ảnh)'}
+            <input 
+                type="file" 
+                multiple 
+                hidden 
+                onChange={e => handleUpload(e.target.files)} 
+                disabled={loading} 
+            />
+        </label>
     );
 }
 
