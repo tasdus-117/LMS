@@ -7,11 +7,9 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// KẾT NỐI DB (Giữ nguyên)
 mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/lms_demo')
-  .then(() => {
-    console.log('Đã kết nối MongoDB');
-    createDefaultAdmin(); // Tự động tạo Admin
-  })
+  .then(() => console.log('Đã kết nối MongoDB'))
   .catch(err => console.error('Lỗi kết nối DB:', err));
 
 // --- MODELS ---
@@ -24,14 +22,38 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', UserSchema);
 
+// MỚI: Model Lớp học
+const ClassroomSchema = new mongoose.Schema({
+    name: String,
+    description: String,
+    teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    studentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    code: { type: String, unique: true },
+    createdAt: { type: Date, default: Date.now }
+});
+const Classroom = mongoose.model('Classroom', ClassroomSchema);
+
+// MỚI: Model Thông báo
+const AnnouncementSchema = new mongoose.Schema({
+    classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom' },
+    teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    content: String,
+    createdAt: { type: Date, default: Date.now }
+});
+const Announcement = mongoose.model('Announcement', AnnouncementSchema);
+
+// CẬP NHẬT: Bài tập gắn với Lớp
 const AssignmentSchema = new mongoose.Schema({
+  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom' }, 
   title: String,
   description: String,
   createdAt: { type: Date, default: Date.now }
 });
 const Assignment = mongoose.model('Assignment', AssignmentSchema);
 
+// CẬP NHẬT: Bài nộp gắn với Lớp
 const SubmissionSchema = new mongoose.Schema({
+  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom' },
   assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment' },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   studentName: String,
@@ -42,113 +64,85 @@ const SubmissionSchema = new mongoose.Schema({
 });
 const Submission = mongoose.model('Submission', SubmissionSchema);
 
-// --- HÀM TẠO ADMIN MẶC ĐỊNH ---
-async function createDefaultAdmin() {
-    const adminExists = await User.findOne({ role: 'ADMIN' });
-    if (!adminExists) {
-        await User.create({
-            username: 'admin',
-            password: 'Hoangtu11072005', // Mật khẩu mặc định
-            fullName: 'Quản Trị Viên',
-            role: 'ADMIN'
-        });
-        console.log("--> Đã tạo tài khoản ADMIN mặc định: admin / 123");
-    }
-}
-
 // --- API ROUTES ---
 
-// 1. LOGIN
+// 1. AUTH & ADMIN (GIỮ NGUYÊN TÍNH NĂNG CŨ)
+async function createDefaultAdmin() {
+    if (!await User.findOne({ role: 'ADMIN' })) 
+        await User.create({ username: 'admin', password: '123', fullName: 'Quản Trị Viên', role: 'ADMIN' });
+}
+createDefaultAdmin();
+
 app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  const user = await User.findOne({ username, password });
-  if (user) res.json(user);
-  else res.status(401).json({ message: "Sai tài khoản hoặc mật khẩu" });
+  const user = await User.findOne({ username: req.body.username, password: req.body.password });
+  user ? res.json(user) : res.status(401).json({ message: "Sai thông tin" });
+});
+app.post('/api/register', async (req, res) => { // Chỉ tạo Student
+  try { res.json(await User.create({ ...req.body, role: 'STUDENT' })); } catch (e) { res.status(500).json({ message: "Lỗi" }); }
+});
+app.post('/api/admin/create-teacher', async (req, res) => { // Admin tạo Teacher
+    try { res.json(await User.create({ ...req.body, role: 'TEACHER' })); } catch (e) { res.status(500).json({ message: "Lỗi" }); }
+});
+app.get('/api/users', async (req, res) => { // Lấy list user
+    res.json(await User.find(req.query.role ? { role: req.query.role } : {}).sort({createdAt: -1}));
+});
+app.delete('/api/users/:id', async (req, res) => { // Xóa user
+    await User.findByIdAndDelete(req.params.id); res.json({ message: "Deleted" });
+});
+app.put('/api/users/:id/reset-password', async (req, res) => { // Đổi pass
+    await User.findByIdAndUpdate(req.params.id, { password: req.body.newPassword }); res.json({ msg: "Success" });
 });
 
-// 2. REGISTER (CHỈ CHO PHÉP ĐĂNG KÝ HỌC SINH - PUBLIC)
-app.post('/api/register', async (req, res) => {
-  try {
-    // Mặc định luôn là STUDENT, không cho phép gửi role lên để hack
-    const newUser = { ...req.body, role: 'STUDENT' };
-    const user = await User.create(newUser);
-    res.json(user);
-  } catch (e) { res.status(500).json({ message: "Tên đăng nhập đã tồn tại" }); }
+// 2. CLASSROOM API (MỚI)
+app.get('/api/my-classes', async (req, res) => {
+    const { userId, role } = req.query;
+    if (role === 'TEACHER') res.json(await Classroom.find({ teacherId: userId }));
+    else res.json(await Classroom.find({ studentIds: userId }).populate('teacherId', 'fullName'));
+});
+app.post('/api/classes', async (req, res) => {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    res.json(await Classroom.create({ ...req.body, code }));
+});
+app.post('/api/classes/join', async (req, res) => {
+    const { code, studentId } = req.body;
+    const cls = await Classroom.findOne({ code });
+    if (!cls) return res.status(404).json({ message: "Sai mã lớp" });
+    if (!cls.studentIds.includes(studentId)) { cls.studentIds.push(studentId); await cls.save(); }
+    res.json(cls);
 });
 
-// 3. CREATE TEACHER (CHỈ DÀNH CHO ADMIN)
-app.post('/api/admin/create-teacher', async (req, res) => {
-    try {
-        const newUser = { ...req.body, role: 'TEACHER' };
-        const user = await User.create(newUser);
-        res.json(user);
-    } catch (e) { res.status(500).json({ message: "Lỗi tạo giáo viên" }); }
+// 3. ANNOUNCEMENT API (MỚI)
+app.get('/api/classes/:classId/announcements', async (req, res) => {
+    res.json(await Announcement.find({ classId: req.params.classId }).sort({ createdAt: -1 }).populate('teacherId', 'fullName'));
+});
+app.post('/api/announcements', async (req, res) => { res.json(await Announcement.create(req.body)); });
+
+// 4. ASSIGNMENT & SUBMISSION (CẬP NHẬT LOGIC CŨ VÀO MỚI)
+app.get('/api/classes/:classId/assignments', async (req, res) => {
+    res.json(await Assignment.find({ classId: req.params.classId }).sort({ createdAt: -1 }));
+});
+app.post('/api/assignments', async (req, res) => { res.json(await Assignment.create(req.body)); });
+app.delete('/api/assignments/:id', async(req, res) => { 
+    await Assignment.findByIdAndDelete(req.params.id); await Submission.deleteMany({assignmentId: req.params.id}); res.json({msg: "Deleted"});
 });
 
-// 4. GET USERS (Lấy danh sách HS hoặc GV)
-app.get('/api/users', async (req, res) => {
-    const { role } = req.query;
-    const filter = role ? { role } : {};
-    const users = await User.find(filter).sort({ createdAt: -1 });
-    res.json(users);
+// Lấy submission theo lớp (cho GV chấm điểm)
+app.get('/api/classes/:classId/submissions', async (req, res) => {
+    res.json(await Submission.find({ classId: req.params.classId }).populate('assignmentId', 'title'));
 });
-
-// 5. DELETE USER (Xóa tài khoản)
-app.delete('/api/users/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        await User.findByIdAndDelete(id);
-        // Xóa sạch dữ liệu liên quan
-        await Submission.deleteMany({ studentId: id });
-        res.json({ message: "Đã xóa user" });
-    } catch (e) { res.status(500).json({ message: "Lỗi" }); }
-});
-
-// --- CÁC API CŨ (ASSIGNMENT/SUBMISSION) GIỮ NGUYÊN ---
-app.post('/api/assignments', async (req, res) => {
-  const asm = await Assignment.create(req.body);
-  res.json(asm);
-});
-app.delete('/api/assignments/:id', async (req, res) => {
-    await Submission.deleteMany({ assignmentId: req.params.id });
-    await Assignment.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
-});
-app.get('/api/assignments', async (req, res) => {
-  const asms = await Assignment.find().sort({ createdAt: -1 });
-  res.json(asms);
-});
-app.get('/api/assignments/:id/submissions', async (req, res) => {
-  const subs = await Submission.find({ assignmentId: req.params.id });
-  res.json(subs);
-});
-app.get('/api/all-submissions', async (req, res) => {
-    const all = await Submission.find().populate('studentId', 'fullName').populate('assignmentId', 'title');
-    res.json(all);
-});
-app.post('/api/submissions', async (req, res) => {
-  const sub = await Submission.create(req.body);
-  res.json(sub);
-});
-app.put('/api/submissions/:id', async (req, res) => {
-  const sub = await Submission.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(sub);
-});
+// Lấy submission của HS (để hiện đã nộp hay chưa)
 app.get('/api/my-submissions', async (req, res) => {
-  const subs = await Submission.find({ studentId: req.query.studentId }).populate('assignmentId', 'title');
-  res.json(subs);
+    const { studentId, classId } = req.query;
+    const filter = { studentId };
+    if (classId) filter.classId = classId;
+    res.json(await Submission.find(filter).populate('assignmentId', 'title'));
 });
-app.put('/api/users/:id/reset-password', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { newPassword } = req.body;
-        
-        // Cập nhật mật khẩu mới
-        await User.findByIdAndUpdate(id, { password: newPassword });
-        
-        res.json({ message: "Đã đổi mật khẩu thành công" });
-    } catch (e) {
-        res.status(500).json({ message: "Lỗi server" });
-    }
+// API lấy TẤT CẢ điểm (Dùng cho Bảng Xếp Hạng Global)
+app.get('/api/all-submissions', async (req, res) => {
+    res.json(await Submission.find().populate('studentId', 'fullName'));
 });
+
+app.post('/api/submissions', async (req, res) => { res.json(await Submission.create(req.body)); });
+app.put('/api/submissions/:id', async (req, res) => { res.json(await Submission.findByIdAndUpdate(req.params.id, req.body, { new: true })); });
+
 app.listen(5000, () => console.log('Server running on port 5000'));
