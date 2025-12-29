@@ -41,7 +41,94 @@ function AuthPage({ onLogin }) {
   };
   return (<div className="auth-container"><div className="auth-form-box"><h2>LMS Pro</h2><input className="form-input" placeholder="User" onChange={e=>setForm({...form,username:e.target.value})}/><input className="form-input" type="password" placeholder="Pass" onChange={e=>setForm({...form,password:e.target.value})}/>{tab==='register'&&<input className="form-input" placeholder="Name" onChange={e=>setForm({...form,fullName:e.target.value})}/>}<button className="btn-primary" onClick={submit}>OK</button><p onClick={()=>setTab(tab==='login'?'register':'login')} style={{cursor:'pointer',textAlign:'center',marginTop:10}}>{tab==='login'?'Đăng ký':'Quay lại'}</p></div></div>);
 }
-function Sidebar({user,activePage,setActivePage,onLogout}){return(<div className="sidebar-container"><div className="hamburger-trigger">☰ MENU</div><div className="sidebar-content"><h3>LMS PRO</h3><div className={`menu-item ${activePage==='dashboard'?'active':''}`} onClick={()=>setActivePage('dashboard')}>🏠 Lớp học</div>{user.role!=='ADMIN'&&<div className={`menu-item ${activePage==='stats'?'active':''}`} onClick={()=>setActivePage('stats')}>📊 Thống kê</div>}{user.role!=='STUDENT'&&<div className={`menu-item ${activePage==='users'?'active':''}`} onClick={()=>setActivePage('users')}>👥 Quản lý User</div>}<div className="menu-item" style={{color:'red',marginTop:20}} onClick={onLogout}>🚪 Logout</div></div></div>)}
+function Sidebar({ user, activePage, setActivePage, onLogout }) {
+    const [isOpen, setIsOpen] = useState(false); // Trạng thái mở/đóng menu
+
+    // Hàm chọn menu xong thì tự đóng lại cho gọn
+    const handleSelect = (page) => {
+        setActivePage(page);
+        setIsOpen(false);
+    };
+
+    return (
+        <>
+            {/* Nút Mở Menu (Luôn hiển thị góc trái) */}
+            <div 
+                className="hamburger-trigger" 
+                onClick={() => setIsOpen(true)}
+                style={{cursor: 'pointer', zIndex: 1000}}
+            >
+                ☰ MENU
+            </div>
+
+            {/* Lớp phủ mờ (Bấm ra ngoài để đóng) */}
+            {isOpen && (
+                <div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 2000
+                    }}
+                    onClick={() => setIsOpen(false)}
+                />
+            )}
+
+            {/* Panel Menu Chính */}
+            <div className={`sidebar-panel ${isOpen ? 'open' : ''}`}>
+                <div className="sidebar-content">
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 20}}>
+                        <h3 style={{margin:0, color:'#4f46e5'}}>LMS PRO 🚀</h3>
+                        <button 
+                            onClick={() => setIsOpen(false)}
+                            style={{background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#64748b'}}
+                        >
+                            ✖
+                        </button>
+                    </div>
+
+                    <div className="user-info-box" style={{padding:10, background:'#f1f5f9', borderRadius:8, marginBottom:20}}>
+                        <div style={{fontWeight:700}}>{user.fullName}</div>
+                        <div style={{fontSize:11, color:'gray'}}>{user.role}</div>
+                    </div>
+
+                    {/* MENU ITEMS */}
+                    <div className={`menu-item ${activePage==='dashboard'?'active':''}`} onClick={()=>handleSelect('dashboard')}>
+                        🏠 Lớp học
+                    </div>
+
+                    {/* Student xem điểm */}
+                    {user.role === 'STUDENT' && (
+                        <div className={`menu-item ${activePage==='grades'?'active':''}`} onClick={()=>handleSelect('grades')}>
+                            📝 Kết quả học tập
+                        </div>
+                    )}
+
+                    {/* Teacher xem thống kê & quản lý HS */}
+                    {user.role === 'TEACHER' && (
+                        <>
+                            <div className={`menu-item ${activePage==='stats'?'active':''}`} onClick={()=>handleSelect('stats')}>
+                                📊 Bảng xếp hạng
+                            </div>
+                            <div className={`menu-item ${activePage==='students'?'active':''}`} onClick={()=>handleSelect('students')}>
+                                👥 Quản lý Học sinh
+                            </div>
+                        </>
+                    )}
+
+                    {/* Admin xem quản lý GV */}
+                    {user.role === 'ADMIN' && (
+                        <div className={`menu-item ${activePage==='teachers'?'active':''}`} onClick={()=>handleSelect('teachers')}>
+                            👨‍🏫 Quản lý Giáo viên
+                        </div>
+                    )}
+
+                    <div className="menu-item" style={{color:'red', marginTop:20, borderTop:'1px solid #eee', paddingTop:10}} onClick={onLogout}>
+                        🚪 Đăng xuất
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+}
 function Header({user}){return <header className="top-header" style={{justifyContent:'flex-end'}}><div className="user-profile">{user.fullName} ({user.role})</div></header>}
 
 // 2. ADMIN VIEW (GIỮ NGUYÊN HOẶC DÙNG CODE BẠN ĐÃ CÓ)

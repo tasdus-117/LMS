@@ -139,70 +139,65 @@ body {
 
 /* NÚT MENU (STYLE MỚI: ÔM TRỌN CHỮ) */
 .hamburger-trigger {
-  pointer-events: auto; /* Cho phép bấm */
-  position: absolute;
-  top: 15px;  /* Cách lề trên */
-  left: 15px; /* Cách lề trái */
-  z-index: 1002;
-  
-  /* Tạo hình viên thuốc ôm chữ */
-  display: inline-flex;
-  align-items: center;
-  gap: 8px; /* Khoảng cách giữa icon 3 gạch và chữ MENU */
-  padding: 8px 16px; /* Đệm trong để nút to ra bao lấy chữ */
-  
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 30px; /* Bo tròn hoàn toàn */
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); /* Đổ bóng nhẹ cho nổi */
-  
-  color: var(--text-main);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    background: white;
+    padding: 8px 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    font-weight: 700;
+    color: #4f46e5;
+    transition: 0.2s;
 }
 
-/* Khi trỏ chuột vào nút -> Nút đổi màu */
-.sidebar-container:hover .hamburger-trigger {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4); /* Bóng đậm hơn */
-  transform: translateY(-2px); /* Nảy lên một chút */
+.hamburger-trigger:hover {
+    transform: scale(1.05);
+    background: #e0e7ff;
 }
 
-/* MENU TRƯỢT RA */
 .sidebar-panel {
-  pointer-events: auto;
-  width: 240px;
-  height: 100vh;
-  background: white;
-  border-right: 1px solid var(--border);
-  box-shadow: 10px 0 25px rgba(0,0,0,0.1);
-  padding-top: 70px; /* Chừa chỗ cho nút menu ở trên */
-  
-  /* Ẩn hiện */
-  transform: translateX(-110%); /* Giấu hẳn sang trái */
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1001;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    background: white;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    z-index: 3000; /* Cao hơn tất cả */
+    padding: 20px;
+    
+    /* Hiệu ứng trượt */
+    transform: translateX(-100%); /* Mặc định ẩn sang trái */
+    transition: transform 0.3s ease-in-out;
 }
 
-/* Logic: Hover vào container (vùng nút hoặc vùng menu) thì menu hiện ra */
-.sidebar-container:hover .sidebar-panel {
-  transform: translateX(0);
+/* Class này được thêm vào khi biến isOpen = true */
+.sidebar-panel.open {
+    transform: translateX(0); /* Trượt ra hiện hình */
 }
 
-.sidebar-content {
-  padding: 20px;
-  opacity: 0;
-  transition: opacity 0.2s 0.1s; /* Delay hiện nội dung */
+.menu-item {
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #475569;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
-.sidebar-container:hover .sidebar-content {
-  opacity: 1;
+
+.menu-item:hover {
+    background: #f1f5f9;
+    color: #4f46e5;
+}
+
+.menu-item.active {
+    background: #e0e7ff;
+    color: #4338ca;
+    font-weight: 700;
 }
 
 /* --- MAIN CONTENT --- */
