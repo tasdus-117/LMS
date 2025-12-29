@@ -92,26 +92,46 @@ function AuthPage({ onLogin }) {
   return (<div className="auth-container"><div className="auth-form-box"><h2>LMS Pro</h2><input className="form-input" placeholder="User" onChange={e=>setForm({...form,username:e.target.value})}/><input className="form-input" type="password" placeholder="Pass" onChange={e=>setForm({...form,password:e.target.value})}/>{tab==='register'&&<input className="form-input" placeholder="Name" onChange={e=>setForm({...form,fullName:e.target.value})}/>}<button className="btn-primary" onClick={submit}>OK</button><p onClick={()=>setTab(tab==='login'?'register':'login')} style={{cursor:'pointer',textAlign:'center',marginTop:10}}>{tab==='login'?'Đăng ký':'Quay lại'}</p></div></div>);
 }
 function Sidebar({ user, activePage, setActivePage, onLogout }) {
-    const [isOpen, setIsOpen] = useState(false); // Trạng thái mở/đóng menu
+    const [isOpen, setIsOpen] = useState(false);
 
-    // Hàm chọn menu xong thì tự đóng lại cho gọn
+    // 1. CẤU HÌNH MENU CHO TỪNG ROLE (Dễ dàng thêm sửa xóa tại đây)
+    const MENU_CONFIG = {
+        ADMIN: [
+            { id: 'dashboard', label: '🏠 Tổng quan', desc: 'Đổi mật khẩu & Thống kê' },
+            { id: 'teachers', label: '👨‍🏫 Quản lý Giáo viên', desc: 'Cấp tài khoản GV' }
+        ],
+        TEACHER: [
+            { id: 'dashboard', label: '🏫 Lớp học', desc: 'Giảng dạy & Chấm bài' },
+            { id: 'stats', label: '🏆 Bảng xếp hạng', desc: 'Thống kê thi đua' },
+            { id: 'students', label: '👥 Quản lý Học sinh', desc: 'Tài khoản & Mật khẩu' }
+        ],
+        STUDENT: [
+            { id: 'dashboard', label: '🏫 Vào lớp học', desc: 'Bài tập & Bảng tin' },
+            { id: 'grades', label: '📊 Kết quả học tập', desc: 'Xem bảng điểm cá nhân' }
+        ]
+    };
+
+    // Lấy danh sách menu dựa trên role hiện tại
+    const currentMenu = MENU_CONFIG[user.role] || [];
+
     const handleSelect = (page) => {
         setActivePage(page);
-        setIsOpen(false);
+        setIsOpen(false); // Đóng menu sau khi chọn
     };
 
     return (
         <>
-            {/* Nút Mở Menu (Luôn hiển thị góc trái) */}
+            {/* NÚT MỞ MENU (Luôn hiện góc trái) */}
             <div 
                 className="hamburger-trigger" 
                 onClick={() => setIsOpen(true)}
-                style={{cursor: 'pointer', zIndex: 1000}}
+                style={{cursor: 'pointer', zIndex: 1000, display:'flex', alignItems:'center', gap:5}}
             >
-                ☰ MENU
+                <span style={{fontSize:18}}>☰</span> 
+                <span>MENU</span>
             </div>
 
-            {/* Lớp phủ mờ (Bấm ra ngoài để đóng) */}
+            {/* LỚP PHỦ MỜ (Bấm ra ngoài để đóng) */}
             {isOpen && (
                 <div 
                     style={{
@@ -122,64 +142,55 @@ function Sidebar({ user, activePage, setActivePage, onLogout }) {
                 />
             )}
 
-            {/* Panel Menu Chính */}
+            {/* PANEL MENU CHÍNH */}
             <div className={`sidebar-panel ${isOpen ? 'open' : ''}`}>
-                <div className="sidebar-content">
+                <div className="sidebar-content" style={{display:'flex', flexDirection:'column', height:'100%'}}>
+                    
+                    {/* Header Menu */}
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 20}}>
-                        <h3 style={{margin:0, color:'#4f46e5'}}>LMS PRO 🚀</h3>
+                        <h3 style={{margin:0, color:'#4f46e5', fontWeight:800}}>LMS PRO 🚀</h3>
                         <button 
                             onClick={() => setIsOpen(false)}
-                            style={{background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#64748b'}}
+                            style={{background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8'}}
                         >
                             ✖
                         </button>
                     </div>
 
-                    <div className="user-info-box" style={{padding:10, background:'#f1f5f9', borderRadius:8, marginBottom:20}}>
-                        <div style={{fontWeight:700}}>{user.fullName}</div>
-                        <div style={{fontSize:11, color:'gray'}}>{user.role}</div>
-                    </div>
-
-                    {/* MENU ITEMS */}
-                    <div className={`menu-item ${activePage==='dashboard'?'active':''}`} onClick={()=>handleSelect('dashboard')}>
-                        🏠 Lớp học
-                    </div>
-
-                    {/* Student xem điểm */}
-                    {user.role === 'STUDENT' && (
-                        <div className={`menu-item ${activePage==='grades'?'active':''}`} onClick={()=>handleSelect('grades')}>
-                            📝 Kết quả học tập
+                    {/* Thông tin User */}
+                    <div className="user-info-box" style={{padding:15, background:'#f1f5f9', borderRadius:10, marginBottom:20, border:'1px solid #e2e8f0'}}>
+                        <div style={{display:'flex', alignItems:'center', gap:10}}>
+                            <div className="avatar" style={{background: user.role==='ADMIN'?'#ef4444':user.role==='TEACHER'?'#3b82f6':'#22c55e', color:'white', width:35, height:35, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>
+                                {user.fullName[0]}
+                            </div>
+                            <div>
+                                <div style={{fontWeight:700, fontSize:14}}>{user.fullName}</div>
+                                <div style={{fontSize:11, color:'gray', fontWeight:600}}>{user.role}</div>
+                            </div>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Teacher xem thống kê & quản lý HS */}
-                    {user.role === 'TEACHER' && (
-                        <>
-                            <div className={`menu-item ${activePage==='stats'?'active':''}`} onClick={()=>handleSelect('stats')}>
-                                📊 Bảng xếp hạng
+                    {/* DANH SÁCH MENU (Render động) */}
+                    <div style={{flex: 1, overflowY:'auto'}}>
+                        {currentMenu.map(item => (
+                            <div 
+                                key={item.id}
+                                className={`menu-item ${activePage === item.id ? 'active' : ''}`} 
+                                onClick={() => handleSelect(item.id)}
+                                style={{marginBottom:8}}
+                            >
+                                <div style={{fontWeight:600}}>{item.label}</div>
+                                <div style={{fontSize:11, opacity:0.7, fontWeight:400}}>{item.desc}</div>
                             </div>
-                            <div className={`menu-item ${activePage==='students'?'active':''}`} onClick={()=>handleSelect('students')}>
-                                👥 Quản lý Học sinh
-                            </div>
-                        </>
-                    )}
+                        ))}
+                    </div>
 
-                    {/* Admin xem quản lý GV */}
-                    {user.role === 'ADMIN' && (
-                        <>
-                            {/* Menu Tổng quan (Để đổi mật khẩu bản thân) */}
-                            <div className={`menu-item ${activePage==='dashboard'?'active':''}`} onClick={()=>setActivePage('dashboard')}>
-                                🏠 Tổng quan
-                            </div>
-                            
-                            {/* Menu Quản lý Giáo viên */}
-                            <div className={`menu-item ${activePage==='teachers'?'active':''}`} onClick={()=>setActivePage('teachers')}>
-                                👨‍🏫 Quản lý Giáo viên
-                            </div>
-                        </>
-                    )}
-
-                    <div className="menu-item" style={{color:'red', marginTop:20, borderTop:'1px solid #eee', paddingTop:10}} onClick={onLogout}>
+                    {/* Footer Menu (Đăng xuất) */}
+                    <div 
+                        className="menu-item" 
+                        style={{color:'#ef4444', marginTop:20, borderTop:'1px solid #eee', paddingTop:15}} 
+                        onClick={onLogout}
+                    >
                         🚪 Đăng xuất
                     </div>
                 </div>
