@@ -7,17 +7,6 @@ const API_URL = 'https://lms-backend-fmhz.onrender.com/api';
 const CLOUD_NAME = "ddytwonba"; 
 const UPLOAD_PRESET = "ddytwonba"; 
 
-Vấn đề bạn gặp phải là do ứng dụng hiện tại đang lưu trạng thái trang (activePage) trong bộ nhớ tạm (RAM). Khi bạn F5 (tải lại trang), bộ nhớ bị xóa sạch và nó quay về mặc định là dashboard. Ngoài ra, vì không thay đổi URL nên trình duyệt không lưu lịch sử để bạn bấm nút Back/Forward.
-
-Để giải quyết cả 2 vấn đề này (F5 giữ nguyên trang & Nút Back hoạt động) mà không cần cài thêm thư viện, chúng ta sẽ sử dụng kỹ thuật URL Hash (thêm dấu # vào đường dẫn).
-
-Bạn chỉ cần sửa đoạn đầu của hàm App trong file client/src/App.jsx.
-
-Cập nhật client/src/App.jsx
-Tìm đến function App() và thay thế toàn bộ phần khai báo state ban đầu bằng đoạn code này:
-
-JavaScript
-
 // --- TÌM ĐOẠN ĐẦU CỦA FUNCTION App() VÀ THAY THẾ ---
 
 function App() {
