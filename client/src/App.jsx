@@ -403,77 +403,116 @@ function StudentManager() {
 // ============================================================================
 // 4. STUDENT VIEW (NÂNG CẤP: THAM GIA LỚP + NỘP BÀI THEO LỚP)
 // ============================================================================
+// ============================================================================
+// KHU VỰC CỦA HỌC SINH (STUDENT VIEW)
+// ============================================================================
+
 function StudentView({ user, activePage }) {
+    // ĐIỀU HƯỚNG
+    // Nếu menu chọn 'grades' -> Hiển thị Bảng điểm
+    if (activePage === 'grades') {
+        return <StudentGrades user={user} />;
+    }
+
+    // Mặc định: Hiển thị Danh sách lớp học
+    return <StudentClassDashboard user={user} />;
+}
+
+// --- COMPONENT 1: DASHBOARD LỚP HỌC (Logic cũ: Tham gia & Vào lớp) ---
+function StudentClassDashboard({ user }) {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState(null);
-    const [detailData, setDetailData] = useState({ anns: [], asms: [] });
     const [showJoin, setShowJoin] = useState(false);
+    
+    // State chi tiết lớp
+    const [detailData, setDetailData] = useState({ anns: [], asms: [] });
     const [tab, setTab] = useState('stream');
 
-    useEffect(() => { if(activePage==='dashboard') loadClasses(); }, [activePage]);
-    const loadClasses = async () => { const res = await axios.get(`${API_URL}/my-classes?userId=${user._id}`); setClasses(res.data); };
+    useEffect(() => { loadClasses(); }, []);
+    const loadClasses = async () => { 
+        try {
+            const res = await axios.get(`${API_URL}/my-classes?userId=${user._id}`);
+            setClasses(res.data);
+        } catch(e) { console.error(e); }
+    };
 
     const handleJoin = async (code) => {
-        try { await axios.post(`${API_URL}/classes/join`, { code, studentId: user._id }); setShowJoin(false); loadClasses(); alert("Đã vào lớp!"); }
-        catch(e) { alert("Mã sai"); }
+        try { 
+            await axios.post(`${API_URL}/classes/join`, { code, studentId: user._id }); 
+            setShowJoin(false); loadClasses(); alert("✅ Đã tham gia lớp!"); 
+        }
+        catch(e) { alert("❌ Mã lớp không đúng"); }
     };
 
     const openClass = async (cls) => {
         setSelectedClass(cls);
         const res = await axios.get(`${API_URL}/classes/${cls._id}/details`);
         setDetailData(res.data);
+        setTab('stream');
     };
 
-    if (activePage !== 'dashboard') return <div>Trang thống kê (Giữ code cũ)...</div>;
-
+    // GIAO DIỆN CHI TIẾT LỚP
     if (selectedClass) {
         return (
             <div>
                  <button className="btn-upload" onClick={()=>setSelectedClass(null)} style={{width:'auto', marginBottom:10}}>⬅ Quay lại</button>
+                 
                  <div className="welcome-banner" style={{background:'#f0fdf4', borderColor:'#16a34a'}}>
                     <h1 style={{color:'#15803d'}}>{selectedClass.name}</h1>
-                    <p>GV: {selectedClass.teacherId?.fullName}</p>
+                    <p>Giáo viên: <b>{selectedClass.teacherId?.fullName}</b></p>
                 </div>
+                
                 <div className="auth-tabs" style={{marginBottom:20}}>
                     <div className={`auth-tab ${tab==='stream'?'active':''}`} onClick={()=>setTab('stream')}>Bảng tin</div>
                     <div className={`auth-tab ${tab==='work'?'active':''}`} onClick={()=>setTab('work')}>Bài tập</div>
                 </div>
+
+                {/* TAB BẢNG TIN */}
                 {tab === 'stream' && detailData.anns.map(a => (
                     <div key={a._id} className="course-card" style={{borderLeft:'4px solid orange'}}>
-                        <b>{a.teacherId?.fullName}</b>: {a.content}
+                        <div style={{fontWeight:700, fontSize:13}}>{a.teacherId?.fullName} <span style={{fontWeight:400, color:'gray'}}>{new Date(a.createdAt).toLocaleString()}</span></div>
+                        <p style={{marginTop:5}}>{a.content}</p>
                     </div>
                 ))}
+
+                {/* TAB BÀI TẬP */}
                 {tab === 'work' && <div className="card-grid">
                     {detailData.asms.map(asm => (
                         <div key={asm._id} className="course-card">
                             <h3>{asm.title}</h3>
+                            <p style={{fontSize:12, color:'gray'}}>{asm.description}</p>
                             <StudentSubmitArea user={user} assignment={asm} classId={selectedClass._id} />
                         </div>
                     ))}
+                    {detailData.asms.length === 0 && <p>Chưa có bài tập nào.</p>}
                 </div>}
             </div>
         );
     }
 
+    // GIAO DIỆN DANH SÁCH LỚP
     return (
         <div>
             <div style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
                 <div className="section-title">🏫 Lớp đã tham gia</div>
-                <button className="btn-primary" style={{width:'auto'}} onClick={()=>setShowJoin(true)}>+ Tham gia lớp</button>
+                <button className="btn-primary" style={{width:'auto'}} onClick={()=>setShowJoin(true)}>+ Tham gia lớp mới</button>
             </div>
+            
             <div className="card-grid">
                 {classes.map(c => (
-                    <div key={c._id} className="course-card" onClick={()=>openClass(c)} style={{cursor:'pointer', borderLeft:'5px solid green'}}>
+                    <div key={c._id} className="course-card" onClick={()=>openClass(c)} style={{cursor:'pointer', borderLeft:'5px solid #22c55e'}}>
                         <h3>{c.name}</h3>
-                        <p>{c.description}</p>
-                        <small>GV: {c.teacherId?.fullName}</small>
+                        <p style={{color:'gray', fontSize:12}}>{c.description}</p>
+                        <span className="tag tag-green">GV: {c.teacherId?.fullName}</span>
                     </div>
                 ))}
             </div>
-            {showJoin && <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center'}}>
+
+            {/* Modal Nhập Mã Lớp */}
+            {showJoin && <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:9999}}>
                 <div className="auth-form-box" style={{background:'white', width:300}}>
                     <h3>Nhập Mã Lớp</h3>
-                    <input id="jcode" className="form-input" placeholder="Mã 6 ký tự" />
+                    <input id="jcode" className="form-input" placeholder="Mã 6 ký tự (VD: X7K9...)" />
                     <button className="btn-primary" onClick={()=>handleJoin(document.getElementById('jcode').value)}>Tham gia</button>
                     <button className="btn-upload" style={{color:'red', marginTop:10}} onClick={()=>setShowJoin(false)}>Hủy</button>
                 </div>
@@ -482,19 +521,108 @@ function StudentView({ user, activePage }) {
     );
 }
 
-// Component con: Nộp bài (Rút gọn)
+// --- COMPONENT 2: KẾT QUẢ HỌC TẬP (Tính điểm TB) ---
+function StudentGrades({ user }) {
+    const [submissions, setSubmissions] = useState([]);
+
+    useEffect(() => {
+        // Lấy tất cả bài đã nộp của học sinh này
+        axios.get(`${API_URL}/my-submissions?studentId=${user._id}`)
+            .then(res => setSubmissions(res.data))
+            .catch(e => console.error(e));
+    }, [user._id]);
+
+    // Lọc ra các bài ĐÃ ĐƯỢC CHẤM (có điểm)
+    const gradedSubs = submissions.filter(s => s.grade !== null && s.grade !== undefined);
+    
+    // Tính điểm trung bình
+    const totalScore = gradedSubs.reduce((sum, s) => sum + s.grade, 0);
+    const avgScore = gradedSubs.length > 0 ? (totalScore / gradedSubs.length).toFixed(2) : "0.00";
+
+    return (
+        <div>
+            {/* Banner Tổng kết */}
+            <div className="welcome-banner" style={{background:'#eff6ff', borderColor:'#3b82f6'}}>
+                <h1 style={{color:'#1d4ed8'}}>📊 Kết Quả Học Tập</h1>
+                <div style={{display:'flex', gap:30, marginTop:10}}>
+                    <div>
+                        <span style={{color:'gray', fontSize:12}}>Điểm trung bình</span>
+                        <div style={{fontSize:24, fontWeight:800, color:'#2563eb'}}>{avgScore}</div>
+                    </div>
+                    <div>
+                        <span style={{color:'gray', fontSize:12}}>Bài đã hoàn thành</span>
+                        <div style={{fontSize:24, fontWeight:800, color:'#2563eb'}}>{gradedSubs.length}</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bảng điểm chi tiết */}
+            <div className="course-card">
+                <h3 style={{marginTop:0}}>Chi tiết bài làm</h3>
+                <table style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
+                    <thead>
+                        <tr style={{textAlign:'left', background:'#f8fafc', borderBottom:'2px solid #e2e8f0'}}>
+                            <th style={{padding:10}}>Tên bài tập</th>
+                            <th style={{padding:10}}>Ngày nộp</th>
+                            <th style={{padding:10}}>Nhận xét</th>
+                            <th style={{padding:10, textAlign:'center'}}>Điểm số</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {gradedSubs.map(s => (
+                            <tr key={s._id} style={{borderBottom:'1px solid #eee'}}>
+                                <td style={{padding:10, fontWeight:600}}>
+                                    {s.assignmentId?.title || <i style={{color:'gray'}}>Bài tập đã xóa</i>}
+                                </td>
+                                <td style={{padding:10, color:'gray'}}>
+                                    {new Date(s.submittedAt).toLocaleDateString()}
+                                </td>
+                                <td style={{padding:10}}>
+                                    {s.feedback || <span style={{color:'#94a3b8'}}>--</span>}
+                                </td>
+                                <td style={{padding:10, textAlign:'center'}}>
+                                    <span className="tag" style={{
+                                        background: s.grade >= 8 ? '#dcfce7' : s.grade >= 5 ? '#e0f2fe' : '#fee2e2',
+                                        color: s.grade >= 8 ? '#166534' : s.grade >= 5 ? '#0369a1' : '#991b1b',
+                                        fontSize: 14, fontWeight: 700
+                                    }}>
+                                        {s.grade}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {gradedSubs.length === 0 && (
+                    <p style={{textAlign:'center', color:'gray', marginTop:20}}>Chưa có bài tập nào được chấm điểm.</p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Helper: Nộp bài trong lớp (Giữ nguyên)
 function StudentSubmitArea({ user, assignment, classId }) {
     const [sub, setSub] = useState(null);
-    useEffect(() => { axios.get(`${API_URL}/my-submissions?studentId=${user._id}&classId=${classId}`).then(r => setSub(r.data.find(s=>s.assignmentId?._id === assignment._id))); }, []);
+    useEffect(() => { 
+        axios.get(`${API_URL}/my-submissions?studentId=${user._id}&classId=${classId}`)
+             .then(r => setSub(r.data.find(s=>s.assignmentId?._id === assignment._id))); 
+    }, []);
     
     const upload = async (file) => {
         const fd = new FormData(); fd.append("file", file); fd.append("upload_preset", UPLOAD_PRESET);
-        const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, fd);
-        await axios.post(`${API_URL}/submissions`, { classId, assignmentId: assignment._id, studentId: user._id, studentName: user.fullName, imageUrl: res.data.secure_url });
-        alert("Nộp xong!"); window.location.reload();
+        try {
+            const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, fd);
+            await axios.post(`${API_URL}/submissions`, { classId, assignmentId: assignment._id, studentId: user._id, studentName: user.fullName, imageUrl: res.data.secure_url });
+            alert("✅ Nộp bài thành công!"); window.location.reload();
+        } catch(e) { alert("Lỗi upload ảnh"); }
     };
 
-    if (sub) return <div style={{color:'green', fontSize:12, marginTop:10}}>✅ Đã nộp. Điểm: {sub.grade??'Chờ chấm'}</div>;
+    if (sub) return <div style={{marginTop:10, padding:8, background:'#f0fdf4', borderRadius:6, fontSize:12, color:'#15803d', border:'1px solid #bbf7d0'}}>
+        <b>✅ Đã nộp bài</b>
+        {sub.grade !== null && <div style={{marginTop:4, fontWeight:700, color:'#ea580c'}}>Điểm: {sub.grade}</div>}
+    </div>;
+    
     return <label className="btn-upload" style={{marginTop:10}}>+ Nộp bài <input type="file" hidden onChange={e=>upload(e.target.files[0])} /></label>;
 }
 
