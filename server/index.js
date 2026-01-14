@@ -286,6 +286,9 @@ app.delete('/api/reset-leaderboard', async (req, res) => {
         res.json({ message: "Đã reset bảng xếp hạng và dữ liệu học tập!" });
     } catch (e) { res.status(500).json({ message: "Lỗi server" }); }
 });
+// --- THÊM VÀO server/index.js ---
+
+// API: Giáo viên thêm học sinh vào lớp bằng Username
 app.post('/api/classes/:classId/add-student-by-username', async (req, res) => {
     try {
         const { username } = req.body;

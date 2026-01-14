@@ -227,3 +227,51 @@ body {
 .menu-item { padding: 8px; margin-bottom: 5px; border-radius: 4px; cursor: pointer; display: flex; gap: 10px; font-weight: 500; color: var(--text-secondary); transition: 0.2s; }
 .menu-item:hover { background: #f1f5f9; color: var(--text-main); }
 .menu-item.active { background: #eef2ff; color: var(--primary); }
+.progress-bar-bg {
+  background-color: #e2e8f0;
+  border-radius: 99px;
+  height: 8px;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 5px;
+}
+.progress-bar-fill {
+  background-color: #3b82f6;
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease-in-out;
+}
+
+/* Badge trạng thái */
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.status-pending { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+.status-submitted { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+.status-graded { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+
+/* Khu vực upload file đẹp hơn */
+.upload-zone {
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.upload-zone:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+  display: block;
+}

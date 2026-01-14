@@ -400,7 +400,7 @@ function TeacherView({ user, activePage }) {
     return <TeacherClassDashboard user={user} />;
 }
 
-// --- THAY THẾ TOÀN BỘ TeacherClassDashboard BẰNG BẢN NÂNG CẤP NÀY ---
+// --- THAY THẾ TeacherClassDashboard ---
 
 function TeacherClassDashboard({ user }) {
     const [classes, setClasses] = useState([]);
@@ -408,242 +408,206 @@ function TeacherClassDashboard({ user }) {
     const [showModal, setShowModal] = useState(false);
     const [newClass, setNewClass] = useState({ name: '', desc: '' });
     
-    // State chi tiết lớp
+    // Data
     const [detailData, setDetailData] = useState({ anns: [], asms: [] });
     const [classSubmissions, setClassSubmissions] = useState([]); 
+    const [classStudents, setClassStudents] = useState([]);
+    const [allStudents, setAllStudents] = useState([]);  
+    const [searchTerm, setSearchTerm] = useState(""); 
     
-    // State quản lý thành viên
-    const [classStudents, setClassStudents] = useState([]); // HS ĐÃ trong lớp
-    const [allStudents, setAllStudents] = useState([]);     // TẤT CẢ HS trong hệ thống
-    const [searchTerm, setSearchTerm] = useState("");       // Từ khóa tìm kiếm
-    
+    // UI State
     const [tab, setTab] = useState('stream'); 
     const [postTitle, setPostTitle] = useState("");
     const [postContent, setPostContent] = useState("");
-    
-    // State chấm bài
     const [expandedAsmId, setExpandedAsmId] = useState(null); 
     const [gradingSub, setGradingSub] = useState(null);
 
     useEffect(() => { loadClasses(); }, []);
 
     const loadClasses = async () => { 
-        try {
-            const res = await axios.get(`${API_URL}/my-classes?userId=${user._id}&role=TEACHER`);
-            setClasses(res.data);
-        } catch(e) { console.error(e); }
+        try { const res = await axios.get(`${API_URL}/my-classes?userId=${user._id}&role=TEACHER`); setClasses(res.data); } catch(e) { console.error(e); }
     };
     
-    const handleCreateClass = async () => {
-        if(!newClass.name) return alert("Vui lòng nhập tên lớp!");
-        try {
-            await axios.post(`${API_URL}/classes`, { ...newClass, teacherId: user._id });
-            alert("✅ Tạo lớp thành công!"); setShowModal(false); setNewClass({ name: '', desc: '' }); loadClasses();
-        } catch(e) { alert("Lỗi tạo lớp"); }
+    const handleCreateClass = async () => { /* Logic giữ nguyên */
+        if(!newClass.name) return alert("Nhập tên lớp!");
+        try { await axios.post(`${API_URL}/classes`, { ...newClass, teacherId: user._id }); setShowModal(false); setNewClass({ name: '', desc: '' }); loadClasses(); } catch(e) { alert("Lỗi tạo lớp"); }
     };
 
     const openClass = async (cls) => {
-        setSelectedClass(cls);
-        setTab('stream'); 
+        setSelectedClass(cls); setTab('stream'); 
         const resDetail = await axios.get(`${API_URL}/classes/${cls._id}/details`);
         setDetailData(resDetail.data);
         const resSub = await axios.get(`${API_URL}/classes/${cls._id}/submissions`);
         setClassSubmissions(resSub.data);
     };
 
-    // KHI CHUYỂN TAB -> LOAD DỮ LIỆU TƯƠNG ỨNG
     const handleTabChange = async (newTab) => {
         setTab(newTab);
         if (newTab === 'people') {
-            // 1. Lấy danh sách HS đang trong lớp
             const resClass = await axios.get(`${API_URL}/classes/${selectedClass._id}/members`);
             setClassStudents(resClass.data);
-            
-            // 2. Lấy danh sách TẤT CẢ HS hệ thống (để chọn thêm vào)
             const resAll = await axios.get(`${API_URL}/users?role=STUDENT`);
             setAllStudents(resAll.data);
         }
     };
 
-    const handlePost = async (type) => {
+    const handlePost = async (type) => { /* Logic giữ nguyên */
         if (type === 'announcement' && !postContent) return alert("Nhập nội dung!");
-        if (type === 'assignment' && (!postTitle || !postContent)) return alert("Nhập đủ tiêu đề và nội dung!");
+        if (type === 'assignment' && (!postTitle || !postContent)) return alert("Nhập đủ tiêu đề & nội dung!");
         try {
-            if (type === 'announcement') {
-                await axios.post(`${API_URL}/announcements`, { classId: selectedClass._id, teacherId: user._id, content: postContent });
-            } else {
-                await axios.post(`${API_URL}/assignments`, { classId: selectedClass._id, title: postTitle, description: postContent });
-            }
+            if (type === 'announcement') await axios.post(`${API_URL}/announcements`, { classId: selectedClass._id, teacherId: user._id, content: postContent });
+            else await axios.post(`${API_URL}/assignments`, { classId: selectedClass._id, title: postTitle, description: postContent });
             setPostTitle(""); setPostContent(""); 
             const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/details`);
             setDetailData(res.data);
         } catch(e) { alert("Lỗi đăng bài"); }
     };
 
-    // --- LOGIC MỚI: THÊM HỌC SINH TỪ DANH SÁCH ---
-    const handleAddStudent = async (username) => {
-        try {
-            await axios.post(`${API_URL}/classes/${selectedClass._id}/add-student-by-username`, { username });
-            alert(`✅ Đã thêm ${username} vào lớp!`);
-            // Reload lại tab People để cập nhật danh sách
-            handleTabChange('people');
-        } catch (e) {
-            alert(e.response?.data?.message || "Lỗi khi thêm");
-        }
+    const handleAddStudent = async (username) => { /* Logic giữ nguyên */
+        try { await axios.post(`${API_URL}/classes/${selectedClass._id}/add-student-by-username`, { username }); alert(`Đã thêm ${username}`); handleTabChange('people'); } catch (e) { alert(e.response?.data?.message); }
+    };
+    const handleKickStudent = async (studentId) => { /* Logic giữ nguyên */
+        if(window.confirm("Xóa học sinh này?")) { await axios.put(`${API_URL}/classes/${selectedClass._id}/remove-student`, { studentId }); handleTabChange('people'); }
+    };
+    const handleDeleteAsm = async (asmId) => { /* Logic giữ nguyên */
+        if(window.confirm("Xóa bài tập này?")) { await axios.delete(`${API_URL}/assignments/${asmId}`); const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/details`); setDetailData(res.data); }
+    };
+    const handleSaveGrade = async (grade, feedback) => { /* Logic giữ nguyên */
+        if(!gradingSub) return;
+        try { await axios.put(`${API_URL}/submissions/${gradingSub._id}`, { grade, feedback }); alert("Đã lưu điểm!"); const updatedSubs = classSubmissions.map(s => s._id === gradingSub._id ? { ...s, grade: parseFloat(grade), feedback } : s); setClassSubmissions(updatedSubs); setGradingSub(null); } catch (e) { alert("Lỗi lưu điểm"); }
     };
 
-    // Lọc ra những học sinh CHƯA tham gia lớp để hiển thị ở mục "Thêm"
     const availableStudents = allStudents.filter(s => {
-        // Kiểm tra xem ID của học sinh này có nằm trong danh sách lớp chưa
         const isInClass = classStudents.find(cs => cs._id === s._id);
-        // Lọc theo từ khóa tìm kiếm
         const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || s.username.toLowerCase().includes(searchTerm.toLowerCase());
         return !isInClass && matchesSearch;
     });
 
-    // Các hàm cũ (Kick, Xóa bài, Chấm bài) giữ nguyên
-    const handleKickStudent = async (studentId) => {
-        if(window.confirm("Xóa học sinh này khỏi lớp?")) {
-            await axios.put(`${API_URL}/classes/${selectedClass._id}/remove-student`, { studentId });
-            handleTabChange('people');
-        }
-    };
-    const handleDeleteAsm = async (asmId) => {
-        if(window.confirm("Xóa bài tập này?")) {
-            await axios.delete(`${API_URL}/assignments/${asmId}`);
-            const res = await axios.get(`${API_URL}/classes/${selectedClass._id}/details`);
-            setDetailData(res.data);
-        }
-    };
-    const handleSaveGrade = async (grade, feedback) => { 
-        if(!gradingSub) return;
-        try {
-            await axios.put(`${API_URL}/submissions/${gradingSub._id}`, { grade, feedback });
-            alert("✅ Đã lưu điểm!");
-            const updatedSubs = classSubmissions.map(s => s._id === gradingSub._id ? { ...s, grade: parseFloat(grade), feedback } : s);
-            setClassSubmissions(updatedSubs);
-            setGradingSub(null);
-        } catch (e) { alert("Lỗi lưu điểm"); }
-    };
-
     if (selectedClass) {
         return (
             <div>
-                <button className="btn-upload" onClick={()=>setSelectedClass(null)} style={{width:'auto', marginBottom:10}}>⬅ Danh sách lớp</button>
-                <div className="welcome-banner" style={{background:'#e0e7ff', borderColor:'#6366f1'}}>
-                    <h1 style={{color:'#4338ca'}}>{selectedClass.name}</h1>
-                    <p>Mã lớp: <b>{selectedClass.code}</b></p>
+                <button className="btn-upload" onClick={()=>setSelectedClass(null)} style={{marginBottom:15}}>⬅ Quay lại danh sách</button>
+                <div className="welcome-banner" style={{background:'linear-gradient(to right, #4f46e5, #3b82f6)', color:'white', borderRadius:12, padding:'20px 30px'}}>
+                    <h1 style={{color:'white', margin:0, fontSize:28}}>{selectedClass.name}</h1>
+                    <p style={{opacity:0.9, marginTop:5}}>Mã lớp: <b style={{background:'rgba(255,255,255,0.2)', padding:'2px 8px', borderRadius:4}}>{selectedClass.code}</b></p>
                 </div>
                 
-                <div className="auth-tabs" style={{marginBottom:20}}>
+                <div className="auth-tabs" style={{margin:'20px 0', borderBottom:'2px solid #e2e8f0'}}>
                     <div className={`auth-tab ${tab==='stream'?'active':''}`} onClick={()=>handleTabChange('stream')}>📢 Bảng tin</div>
                     <div className={`auth-tab ${tab==='work'?'active':''}`} onClick={()=>handleTabChange('work')}>📝 Bài tập</div>
-                    <div className={`auth-tab ${tab==='people'?'active':''}`} onClick={()=>handleTabChange('people')}>👥 Mọi người</div>
+                    <div className={`auth-tab ${tab==='people'?'active':''}`} onClick={()=>handleTabChange('people')}>👥 Thành viên</div>
                 </div>
 
-                {/* TAB BẢNG TIN */}
                 {tab === 'stream' && (
-                    <div>
-                        <div className="course-card">
-                            <textarea className="form-input" placeholder="Thông báo cho lớp..." value={postContent} onChange={e=>setPostContent(e.target.value)}></textarea>
-                            <button className="btn-primary" onClick={()=>handlePost('announcement')}>Đăng tin</button>
+                    <div style={{maxWidth:800, margin:'0 auto'}}>
+                        <div className="course-card" style={{boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}}>
+                            <textarea className="form-input" style={{border:'none', background:'#f8fafc', fontSize:14}} rows={3} placeholder="Đăng thông báo cho lớp..." value={postContent} onChange={e=>setPostContent(e.target.value)}></textarea>
+                            <div style={{textAlign:'right', marginTop:10}}><button className="btn-primary" onClick={()=>handlePost('announcement')}>Đăng tin</button></div>
                         </div>
-                        {detailData.anns.map(a => (<div key={a._id} className="course-card" style={{borderLeft:'4px solid orange'}}><b>{a.teacherId?.fullName}</b>: <LinkText text={a.content}/></div>))}
+                        {detailData.anns.map(a => (<div key={a._id} className="course-card" style={{borderLeft:'4px solid orange'}}><b>{a.teacherId?.fullName}</b>: <LinkText text={a.content}/> <div style={{fontSize:11, color:'gray', marginTop:5}}>{new Date(a.createdAt).toLocaleString()}</div></div>))}
                     </div>
                 )}
 
-                {/* TAB BÀI TẬP */}
+                {/* --- GIAO DIỆN BÀI TẬP ĐẸP HƠN --- */}
                 {tab === 'work' && (
-                    <div>
-                         <div className="course-card" style={{borderLeft:'4px solid #3b82f6'}}>
-                            <h3 style={{marginTop:0, color:'#1d4ed8'}}>➕ Giao bài tập mới</h3>
-                            <input className="form-input" placeholder="Tiêu đề bài tập" value={postTitle} onChange={e=>setPostTitle(e.target.value)} />
-                            <textarea className="form-input" rows={3} placeholder="Nội dung chi tiết..." value={postContent} onChange={e=>setPostContent(e.target.value)}></textarea>
-                            <button className="btn-primary" onClick={()=>handlePost('assignment')}>Giao bài</button>
-                        </div>
-                        <div className="card-grid">
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 350px', gap:25}}>
+                        {/* CỘT TRÁI: DANH SÁCH BÀI TẬP */}
+                        <div>
+                            <h3 style={{marginTop:0, color:'#334155'}}>Danh sách bài tập</h3>
+                            {detailData.asms.length === 0 && <p style={{color:'gray', fontStyle:'italic'}}>Chưa có bài tập nào.</p>}
+                            
                             {detailData.asms.map(asm => {
                                 const subsForThisAsm = classSubmissions.filter(s => String(s.assignmentId?._id || s.assignmentId) === String(asm._id));
+                                const studentCount = classStudents.length || 1; // Tránh chia cho 0
+                                const submitCount = subsForThisAsm.length;
+                                const percent = Math.round((submitCount / studentCount) * 100);
                                 const isExpanded = expandedAsmId === asm._id;
+
                                 return (
-                                    <div key={asm._id} className="course-card" style={{gridColumn: isExpanded ? '1 / -1' : 'auto'}}>
+                                    <div key={asm._id} className="course-card" style={{borderLeft:'4px solid #3b82f6', marginBottom:15, transition:'all 0.2s'}}>
                                         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
-                                            <div style={{flex:1}}><h3 style={{margin:'0 0 5px 0'}}>{asm.title}</h3><div style={{fontSize:13, color:'#334155', marginBottom:10}}><LinkText text={asm.description}/></div><small style={{color:'gray'}}>Đã nộp: <b>{subsForThisAsm.length}</b></small></div>
-                                            <div style={{display:'flex', gap:5, marginLeft:10}}><button className="btn-upload" onClick={() => setExpandedAsmId(isExpanded ? null : asm._id)}>{isExpanded ? 'Đóng lại' : '📂 Xem nộp'}</button><button className="btn-upload" style={{color:'red'}} onClick={()=>handleDeleteAsm(asm._id)}>🗑️</button></div>
+                                            <div style={{flex:1}}>
+                                                <h3 style={{margin:'0 0 5px 0', color:'#1e3a8a'}}>{asm.title}</h3>
+                                                <div style={{fontSize:13, color:'#475569', marginBottom:15}}><LinkText text={asm.description}/></div>
+                                                
+                                                {/* THANH TIẾN ĐỘ */}
+                                                <div style={{display:'flex', alignItems:'center', gap:10, fontSize:12, color:'gray'}}>
+                                                    <span>Tiến độ nộp bài: <b>{submitCount}/{studentCount}</b></span>
+                                                    <div className="progress-bar-bg" style={{width:150}}><div className="progress-bar-fill" style={{width: `${percent}%`}}></div></div>
+                                                    <span>{percent}%</span>
+                                                </div>
+                                            </div>
+                                            <div style={{display:'flex', gap:5}}>
+                                                <button className="btn-upload" onClick={() => setExpandedAsmId(isExpanded ? null : asm._id)}>{isExpanded ? 'Đóng' : '📂 Chấm bài'}</button>
+                                                <button className="btn-upload" style={{color:'red', borderColor:'#fee2e2', background:'#fef2f2'}} onClick={()=>handleDeleteAsm(asm._id)}>🗑️</button>
+                                            </div>
                                         </div>
-                                        {isExpanded && (<div style={{marginTop:15, borderTop:'1px solid #eee', paddingTop:15}}>{subsForThisAsm.length === 0 ? <p style={{color:'gray'}}>Chưa có bài nộp.</p> : (<table style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}><thead><tr style={{textAlign:'left', background:'#f8fafc', borderBottom:'1px solid #ddd'}}><th style={{padding:8}}>Học sinh</th><th style={{padding:8}}>Thời gian</th><th style={{padding:8}}>Điểm</th><th style={{padding:8}}>Action</th></tr></thead><tbody>{subsForThisAsm.map(sub => (<tr key={sub._id} style={{borderBottom:'1px solid #eee'}}><td style={{padding:8, fontWeight:600}}>{sub.studentName}</td><td style={{padding:8}}>{new Date(sub.submittedAt).toLocaleDateString()}</td><td style={{padding:8}}>{sub.grade !== null ? <b style={{color:'green'}}>{sub.grade}</b> : '---'}</td><td style={{padding:8}}><button className="btn-primary" style={{padding:'4px 8px', fontSize:12}} onClick={() => setGradingSub(sub)}>✍️ Chấm</button></td></tr>))}</tbody></table>)}</div>)}
+
+                                        {/* EXPAND: DANH SÁCH NỘP */}
+                                        {isExpanded && (
+                                            <div style={{marginTop:20, borderTop:'1px dashed #cbd5e1', paddingTop:15, animation:'fadeIn 0.3s'}}>
+                                                {submitCount === 0 ? <p style={{color:'gray', textAlign:'center'}}>Chưa có ai nộp bài.</p> : (
+                                                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:10}}>
+                                                        {subsForThisAsm.map(sub => (
+                                                            <div key={sub._id} style={{background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:10, fontSize:13}}>
+                                                                <div style={{fontWeight:700, marginBottom:5}}>{sub.studentName}</div>
+                                                                <div style={{marginBottom:8, fontSize:11, color:'gray'}}>{new Date(sub.submittedAt).toLocaleDateString()}</div>
+                                                                {sub.grade !== null ? 
+                                                                    <div className="status-badge status-graded">Điểm: {sub.grade}</div> : 
+                                                                    <div className="status-badge status-submitted">Chờ chấm</div>
+                                                                }
+                                                                <button className="btn-primary" style={{width:'100%', marginTop:10, fontSize:11, padding:'4px'}} onClick={() => setGradingSub(sub)}>✍️ Chấm ngay</button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
                         </div>
-                    </div>
-                )}
 
-                {/* TAB MỌI NGƯỜI (GIAO DIỆN THÊM MỚI) */}
-                {tab === 'people' && (
-                    <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:20}}>
-                        
-                        {/* Cột Trái: Danh sách thành viên */}
-                        <div className="course-card">
-                            <h3 style={{marginTop:0}}>Thành viên lớp ({classStudents.length})</h3>
-                            <table style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
-                                <thead><tr style={{textAlign:'left', borderBottom:'2px solid #eee', background:'#f8fafc'}}><th style={{padding:10}}>Tên</th><th style={{padding:10}}>User</th><th style={{padding:10}}>Xóa</th></tr></thead>
-                                <tbody>
-                                    {classStudents.map(s => (
-                                        <tr key={s._id} style={{borderBottom:'1px solid #eee'}}>
-                                            <td style={{padding:10, fontWeight:600}}>{s.fullName}</td>
-                                            <td style={{padding:10, color:'gray'}}>{s.username}</td>
-                                            <td style={{padding:10}}><button className="btn-upload" style={{color:'red', borderColor:'red', padding:'4px 8px'}} onClick={() => handleKickStudent(s._id)}>Kick</button></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {classStudents.length === 0 && <p style={{color:'gray', fontStyle:'italic'}}>Lớp trống.</p>}
-                        </div>
-
-                        {/* Cột Phải: Tìm & Thêm Học sinh */}
-                        <div className="course-card" style={{height:'fit-content', borderLeft:'4px solid #22c55e', maxHeight:'80vh', overflowY:'auto'}}>
-                            <h3 style={{marginTop:0, color:'#166534'}}>➕ Thêm học sinh</h3>
-                            <input 
-                                className="form-input" 
-                                placeholder="🔍 Tìm tên hoặc username..." 
-                                value={searchTerm} 
-                                onChange={e=>setSearchTerm(e.target.value)} 
-                            />
-                            
-                            <div style={{marginTop:10}}>
-                                {availableStudents.length === 0 ? (
-                                    <p style={{fontSize:12, color:'gray'}}>Không tìm thấy học sinh nào (hoặc đã vào lớp hết).</p>
-                                ) : (
-                                    <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                                        {availableStudents.map(s => (
-                                            <div key={s._id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f0fdf4', padding:8, borderRadius:6, border:'1px solid #bbf7d0'}}>
-                                                <div style={{overflow:'hidden'}}>
-                                                    <div style={{fontSize:13, fontWeight:700}}>{s.fullName}</div>
-                                                    <div style={{fontSize:11, color:'#64748b'}}>{s.username}</div>
-                                                </div>
-                                                <button 
-                                                    className="btn-primary" 
-                                                    style={{width:'auto', padding:'4px 8px', fontSize:11}}
-                                                    onClick={() => handleAddStudent(s.username)}
-                                                >
-                                                    Thêm
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                        {/* CỘT PHẢI: FORM TẠO BÀI (STICKY) */}
+                        <div>
+                            <div className="course-card" style={{position:'sticky', top:20, borderTop:'4px solid #10b981', boxShadow:'0 10px 15px -3px rgba(0,0,0,0.1)'}}>
+                                <h3 style={{marginTop:0, color:'#065f46'}}>➕ Tạo bài tập</h3>
+                                <p style={{fontSize:12, color:'gray', marginBottom:15}}>Giao nhiệm vụ mới cho cả lớp.</p>
+                                
+                                <label style={{fontSize:12, fontWeight:600}}>Tiêu đề</label>
+                                <input className="form-input" placeholder="VD: Bài tập Chương 1..." value={postTitle} onChange={e=>setPostTitle(e.target.value)} />
+                                
+                                <label style={{fontSize:12, fontWeight:600}}>Nội dung chi tiết</label>
+                                <textarea className="form-input" rows={5} placeholder="Mô tả, link tài liệu, hạn nộp..." value={postContent} onChange={e=>setPostContent(e.target.value)}></textarea>
+                                
+                                <button className="btn-primary" style={{width:'100%', background:'#10b981', borderColor:'#10b981'}} onClick={()=>handlePost('assignment')}>Giao bài ngay</button>
                             </div>
                         </div>
                     </div>
                 )}
-                
+
+                {/* TAB MỌI NGƯỜI (GIỮ NGUYÊN CODE CŨ CỦA BẠN) */}
+                {tab === 'people' && (
+                    <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:20}}>
+                        <div className="course-card">
+                            <h3 style={{marginTop:0}}>Thành viên lớp ({classStudents.length})</h3>
+                            <table style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
+                                <thead><tr style={{textAlign:'left', borderBottom:'2px solid #eee', background:'#f8fafc'}}><th style={{padding:10}}>Tên</th><th style={{padding:10}}>User</th><th style={{padding:10}}>Xóa</th></tr></thead>
+                                <tbody>{classStudents.map(s => (<tr key={s._id} style={{borderBottom:'1px solid #eee'}}><td style={{padding:10, fontWeight:600}}>{s.fullName}</td><td style={{padding:10, color:'gray'}}>{s.username}</td><td style={{padding:10}}><button className="btn-upload" style={{color:'red', borderColor:'red', padding:'4px 8px'}} onClick={() => handleKickStudent(s._id)}>Kick</button></td></tr>))}</tbody>
+                            </table>
+                        </div>
+                        <div className="course-card" style={{height:'fit-content', borderLeft:'4px solid #22c55e', maxHeight:'80vh', overflowY:'auto'}}>
+                            <h3 style={{marginTop:0, color:'#166534'}}>➕ Thêm học sinh</h3>
+                            <input className="form-input" placeholder="🔍 Tìm tên..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
+                            <div style={{marginTop:10}}>{availableStudents.map(s => (<div key={s._id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f0fdf4', padding:8, borderRadius:6, marginBottom:5, border:'1px solid #bbf7d0'}}><div style={{overflow:'hidden'}}><div style={{fontSize:13, fontWeight:700}}>{s.fullName}</div><div style={{fontSize:11, color:'#64748b'}}>{s.username}</div></div><button className="btn-primary" style={{width:'auto', padding:'4px 8px', fontSize:11}} onClick={() => handleAddStudent(s.username)}>Thêm</button></div>))}</div>
+                        </div>
+                    </div>
+                )}
                 {gradingSub && <GradingModal submission={gradingSub} onClose={() => setGradingSub(null)} onSave={handleSaveGrade} />}
             </div>
         );
     }
-    // ... Return list lớp (giữ nguyên)
-    return (
+    return ( /* ... Return danh sách lớp giữ nguyên ... */
         <div>
             <div style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
                 <div className="section-title">🏫 Lớp học của tôi</div>
@@ -1072,20 +1036,19 @@ function StudentGrades({ user }) {
 }
 
 // 3. COMPONENT NỘP BÀI (Giữ nguyên component nộp nhiều ảnh đã làm ở bước trước)
+// --- THAY THẾ StudentSubmitArea ---
+
 function StudentSubmitArea({ user, assignment, classId }) {
     const [sub, setSub] = useState(null);
     const [loading, setLoading] = useState(false);
     const [checking, setChecking] = useState(true);
 
     useEffect(() => { 
-        // Logic lấy bài nộp cũ (Giữ nguyên)
         axios.get(`${API_URL}/my-submissions?studentId=${user._id}&classId=${classId}`)
              .then(r => {
                  const mySub = r.data.find(s => String(s.assignmentId?._id || s.assignmentId) === String(assignment._id));
-                 setSub(mySub);
-                 setChecking(false);
-             })
-             .catch(() => setChecking(false));
+                 setSub(mySub); setChecking(false);
+             }).catch(() => setChecking(false));
     }, [assignment]);
     
     const handleUpload = async (files) => {
@@ -1093,58 +1056,64 @@ function StudentSubmitArea({ user, assignment, classId }) {
         setLoading(true);
         try {
             const uploadedUrls = [];
-            // Upload ảnh lên Cloudinary
             for (let i = 0; i < files.length; i++) {
-                const fd = new FormData(); 
-                fd.append("file", files[i]); 
-                fd.append("upload_preset", UPLOAD_PRESET);
+                const fd = new FormData(); fd.append("file", files[i]); fd.append("upload_preset", UPLOAD_PRESET);
                 const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, fd);
                 uploadedUrls.push(res.data.secure_url);
             }
-
-            // Gửi dữ liệu về Server
-            // 👇 QUAN TRỌNG: Lưu kết quả trả về vào biến res
-            const res = await axios.post(`${API_URL}/submissions`, { 
-                classId, 
-                assignmentId: assignment._id, 
-                studentId: user._id, 
-                studentName: user.fullName, 
-                imageUrls: uploadedUrls 
-            });
-
-            alert("✅ Nộp bài thành công!"); 
-            
-            // ❌ XÓA DÒNG NÀY: window.location.reload(); 
-            
-            // ✅ THÊM DÒNG NÀY: Cập nhật state trực tiếp để đổi giao diện ngay lập tức
-            setSub(res.data); 
-
-        } catch(e) { 
-            console.error(e);
-            alert("Lỗi khi nộp bài"); 
-        } finally { 
-            setLoading(false); 
-        }
+            const res = await axios.post(`${API_URL}/submissions`, { classId, assignmentId: assignment._id, studentId: user._id, studentName: user.fullName, imageUrls: uploadedUrls });
+            alert("✅ Nộp bài thành công!"); setSub(res.data);
+        } catch(e) { alert("Lỗi upload"); } finally { setLoading(false); }
     };
 
     if (checking) return <div style={{fontSize:12, color:'gray'}}>⏳...</div>;
 
-    // ... (Phần hiển thị bên dưới GIỮ NGUYÊN) ...
+    // --- TRƯỜNG HỢP 1: ĐÃ NỘP ---
     if (sub) {
         const images = sub.imageUrls && sub.imageUrls.length > 0 ? sub.imageUrls : (sub.imageUrl ? [sub.imageUrl] : []);
+        const isGraded = sub.grade !== null;
+
         return (
-            <div style={{marginTop:10, padding:10, background: sub.grade !== null ? '#f0fdf4' : '#fffbeb', borderRadius:8, border: sub.grade !== null ? '1px solid #bbf7d0' : '1px solid #fde68a'}}>
-                <div style={{fontWeight:700, color: sub.grade !== null ? '#15803d' : '#b45309', fontSize:13}}>{sub.grade !== null ? '✅ Đã chấm' : '⏳ Đã nộp, chờ chấm'}</div>
-                <div style={{display:'flex', gap:5, overflowX:'auto', marginTop:5}}>
-                    {images.map((img, idx) => (<a key={idx} href={img} target="_blank" rel="noreferrer"><img src={img} style={{width:50, height:50, objectFit:'cover', borderRadius:4, border:'1px solid #ccc'}} /></a>))}
+            <div style={{marginTop:15, padding:15, background: isGraded ? '#f0fdf4' : '#eff6ff', borderRadius:12, border: isGraded ? '1px solid #86efac' : '1px solid #bfdbfe'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+                    <div style={{fontWeight:700, color: isGraded ? '#166534' : '#1e40af'}}>
+                        {isGraded ? '✅ Đã chấm điểm' : '⏳ Đã nộp bài, chờ giáo viên chấm'}
+                    </div>
+                    <div style={{fontSize:11, color:'gray'}}>{new Date(sub.submittedAt).toLocaleString()}</div>
                 </div>
-                {sub.grade !== null && <div style={{marginTop:8, paddingTop:8, borderTop:'1px solid #eee'}}><b style={{fontSize:16, color:'#dc2626'}}>{sub.grade}đ</b><span style={{fontSize:12, marginLeft:5, color:'#334155'}}>{sub.feedback}</span></div>}
+
+                {/* Danh sách ảnh đã nộp */}
+                <div style={{display:'flex', gap:10, overflowX:'auto', paddingBottom:5}}>
+                    {images.map((img, idx) => (
+                        <a key={idx} href={img} target="_blank" rel="noreferrer" style={{position:'relative', display:'block'}}>
+                            <img src={img} style={{width:80, height:80, objectFit:'cover', borderRadius:8, border:'1px solid rgba(0,0,0,0.1)'}} />
+                            <div style={{position:'absolute', bottom:0, right:0, background:'rgba(0,0,0,0.6)', color:'white', fontSize:9, padding:'2px 5px', borderTopLeftRadius:6}}>{idx+1}</div>
+                        </a>
+                    ))}
+                </div>
+
+                {/* Kết quả chấm điểm */}
+                {isGraded && (
+                    <div style={{marginTop:15, paddingTop:15, borderTop:'1px dashed #bbf7d0', display:'flex', alignItems:'center', gap:15}}>
+                        <div style={{background:'white', width:60, height:60, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', border:'3px solid #16a34a', color:'#16a34a', fontWeight:800, fontSize:20, boxShadow:'0 2px 5px rgba(0,0,0,0.1)'}}>
+                            {sub.grade}
+                        </div>
+                        <div>
+                            <div style={{fontSize:11, fontWeight:700, textTransform:'uppercase', color:'#166534'}}>Lời phê của giáo viên:</div>
+                            <div style={{fontStyle:'italic', color:'#334155'}}>"{sub.feedback}"</div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
+    
+    // --- TRƯỜNG HỢP 2: CHƯA NỘP (GIAO DIỆN UPLOAD ĐẸP) ---
     return (
-        <label className="btn-upload" style={{marginTop:10, textAlign:'center', display:'block', background:'#eff6ff', color:'#2563eb', border:'1px dashed #bfdbfe', cursor: loading ? 'wait' : 'pointer'}}>
-            {loading ? 'Đang tải lên...' : '☁️ Nộp bài (Chọn nhiều ảnh)'}
+        <label className="upload-zone" style={{marginTop:15, display:'block'}}>
+            <span className="upload-icon">{loading ? '⏳' : '☁️'}</span>
+            <div style={{fontWeight:600, color:'#334155'}}>{loading ? 'Đang tải ảnh lên...' : 'Nộp bài tập của bạn'}</div>
+            <div style={{fontSize:12, color:'#64748b', marginTop:5}}>{loading ? 'Vui lòng không tắt trình duyệt' : 'Bấm vào đây để chọn ảnh bài làm (Hỗ trợ nhiều ảnh)'}</div>
             <input type="file" multiple hidden onChange={e => handleUpload(e.target.files)} disabled={loading} />
         </label>
     );
