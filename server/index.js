@@ -286,4 +286,29 @@ app.delete('/api/reset-leaderboard', async (req, res) => {
         res.json({ message: "Đã reset bảng xếp hạng và dữ liệu học tập!" });
     } catch (e) { res.status(500).json({ message: "Lỗi server" }); }
 });
+app.post('/api/classes/:classId/add-student-by-username', async (req, res) => {
+    try {
+        const { username } = req.body;
+        // 1. Tìm học sinh theo username
+        const student = await User.findOne({ username, role: 'STUDENT' });
+        if (!student) return res.status(404).json({ message: "Không tìm thấy học sinh này!" });
+
+        // 2. Tìm lớp
+        const cls = await Classroom.findById(req.params.classId);
+        if (!cls) return res.status(404).json({ message: "Lớp không tồn tại" });
+
+        // 3. Kiểm tra xem đã có trong lớp chưa
+        if (cls.studentIds.includes(student._id)) {
+            return res.status(400).json({ message: "Học sinh này đã có trong lớp rồi!" });
+        }
+
+        // 4. Thêm vào lớp
+        cls.studentIds.push(student._id);
+        await cls.save();
+
+        res.json({ message: "Đã thêm học sinh thành công!" });
+    } catch (e) {
+        res.status(500).json({ message: "Lỗi server" });
+    }
+});
 app.listen(5000, () => console.log('Server running on port 5000'));
