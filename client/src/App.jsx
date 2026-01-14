@@ -886,67 +886,101 @@ function StudentView({ user, activePage }) {
 }
 
 // 1. DASHBOARD LỚP HỌC
+// --- THAY THẾ TOÀN BỘ StudentClassDashboard ---
+
 function StudentClassDashboard({ user }) {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState(null);
     const [showJoin, setShowJoin] = useState(false);
+    
+    // Data chi tiết lớp
     const [detailData, setDetailData] = useState({ anns: [], asms: [] });
     const [tab, setTab] = useState('stream');
 
     useEffect(() => { loadClasses(); }, []);
+    
     const loadClasses = async () => { 
-        try {
-            const res = await axios.get(`${API_URL}/my-classes?userId=${user._id}`);
-            setClasses(res.data);
-        } catch(e) { console.error(e); }
+        try { const res = await axios.get(`${API_URL}/my-classes?userId=${user._id}`); setClasses(res.data); } catch(e) { console.error(e); } 
     };
-
-    const handleJoin = async (code) => {
-        try { 
-            await axios.post(`${API_URL}/classes/join`, { code, studentId: user._id }); 
-            setShowJoin(false); loadClasses(); alert("✅ Đã tham gia lớp!"); 
-        } catch(e) { alert("❌ Mã lớp không đúng"); }
+    
+    const handleJoin = async (code) => { 
+        try { await axios.post(`${API_URL}/classes/join`, { code, studentId: user._id }); setShowJoin(false); loadClasses(); alert("✅ Đã tham gia lớp!"); } catch(e) { alert("❌ Mã lớp không đúng"); } 
     };
 
     const openClass = async (cls) => {
-        setSelectedClass(cls);
-        setDetailData({ anns: [], asms: [] });
+        setSelectedClass(cls); setDetailData({ anns: [], asms: [] });
         const res = await axios.get(`${API_URL}/classes/${cls._id}/details`);
-        setDetailData(res.data);
-        setTab('stream');
+        setDetailData(res.data); setTab('stream');
     };
 
     if (selectedClass) {
         return (
             <div>
-                 <button className="btn-upload" onClick={()=>setSelectedClass(null)} style={{width:'auto', marginBottom:10}}>⬅ Quay lại</button>
-                 <div className="welcome-banner" style={{background:'#f0fdf4', borderColor:'#16a34a'}}>
-                    <h1 style={{color:'#15803d'}}>{selectedClass.name}</h1>
-                    <p>GV: <b>{selectedClass.teacherId?.fullName}</b></p>
+                 <button className="btn-upload" onClick={()=>setSelectedClass(null)} style={{width:'auto', marginBottom:15}}>⬅ Quay lại</button>
+                 
+                 {/* Banner Lớp Học - Màu Xanh Lá cho Học Sinh */}
+                 <div className="welcome-banner" style={{background:'linear-gradient(to right, #16a34a, #22c55e)', color:'white', borderRadius:12, padding:'20px 30px'}}>
+                    <h1 style={{color:'white', margin:0, fontSize:28}}>{selectedClass.name}</h1>
+                    <p style={{opacity:0.9, marginTop:5}}>Giáo viên: <b style={{background:'rgba(255,255,255,0.2)', padding:'2px 8px', borderRadius:4}}>{selectedClass.teacherId?.fullName}</b></p>
                 </div>
-                <div className="auth-tabs" style={{marginBottom:20}}>
+                
+                <div className="auth-tabs" style={{margin:'20px 0', borderBottom:'2px solid #e2e8f0'}}>
                     <div className={`auth-tab ${tab==='stream'?'active':''}`} onClick={()=>setTab('stream')}>Bảng tin</div>
                     <div className={`auth-tab ${tab==='work'?'active':''}`} onClick={()=>setTab('work')}>Bài tập</div>
                 </div>
 
+                {/* TAB BẢNG TIN */}
                 {tab === 'stream' && (
-                    <div>
-                        {detailData.anns.length===0 && <p style={{color:'gray'}}>Chưa có thông báo.</p>}
+                    <div style={{maxWidth:800, margin:'0 auto'}}>
+                        {detailData.anns.length===0 && <div style={{textAlign:'center', color:'gray', padding:30}}>Chưa có thông báo nào từ giáo viên.</div>}
                         {detailData.anns.map(a => (
-                            <div key={a._id} className="course-card" style={{borderLeft:'4px solid orange'}}>
-                                <b>{a.teacherId?.fullName}</b>: {a.content}
+                            <div key={a._id} className="course-card" style={{borderLeft:'4px solid orange', marginBottom:15}}>
+                                <div style={{display:'flex', justifyContent:'space-between', marginBottom:5}}>
+                                    <b style={{color:'#c2410c'}}>{a.teacherId?.fullName}</b>
+                                    <span style={{fontSize:11, color:'gray'}}>{new Date(a.createdAt).toLocaleString()}</span>
+                                </div>
+                                <div style={{lineHeight:1.5}}>
+                                    <LinkText text={a.content} />
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
+
+                {/* TAB BÀI TẬP - GIAO DIỆN MỚI ĐẸP HƠN */}
                 {tab === 'work' && (
-                    <div className="card-grid">
-                        {detailData.asms.length===0 && <p>Chưa có bài tập.</p>}
+                    <div style={{maxWidth:800, margin:'0 auto'}}>
+                        {detailData.asms.length===0 && (
+                            <div style={{textAlign:'center', padding:40, background:'#f9fafb', borderRadius:10}}>
+                                <div style={{fontSize:40}}>🎉</div>
+                                <p style={{color:'gray'}}>Tuyệt vời! Hiện tại không có bài tập nào.</p>
+                            </div>
+                        )}
+
                         {detailData.asms.map(asm => (
-                            <div key={asm._id} className="course-card">
-                                <h3>{asm.title}</h3>
-                                <p style={{fontSize:12, color:'gray'}}>{asm.description}</p>
-                                <StudentSubmitArea user={user} assignment={asm} classId={selectedClass._id} />
+                            <div key={asm._id} className="course-card" style={{borderLeft:'5px solid #22c55e', marginBottom:25, boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}}>
+                                {/* 1. Phần Tiêu đề */}
+                                <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:15}}>
+                                    <div style={{background:'#dcfce7', color:'#166534', padding:'8px', borderRadius:8, fontSize:20}}>📝</div>
+                                    <div>
+                                        <h2 style={{margin:0, color:'#14532d', fontSize:20}}>{asm.title}</h2>
+                                        <span style={{fontSize:11, color:'gray'}}>Được giao lúc: {new Date(asm.createdAt || Date.now()).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+
+                                {/* 2. Phần Nội dung hướng dẫn (Có khung riêng) */}
+                                <div style={{background:'#f8fafc', padding:20, borderRadius:10, border:'1px solid #e2e8f0', marginBottom:20}}>
+                                    <div style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', marginBottom:8, letterSpacing:0.5}}>Nội dung / Yêu cầu:</div>
+                                    <div style={{color:'#334155', lineHeight:1.6, whiteSpace:'pre-wrap'}}>
+                                        {/* Sử dụng LinkText để hiển thị link bấm được */}
+                                        <LinkText text={asm.description} />
+                                    </div>
+                                </div>
+
+                                {/* 3. Khu vực Nộp bài (Component đã làm đẹp ở bước trước) */}
+                                <div style={{borderTop:'1px dashed #cbd5e1', paddingTop:10}}>
+                                    <StudentSubmitArea user={user} assignment={asm} classId={selectedClass._id} />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -955,19 +989,27 @@ function StudentClassDashboard({ user }) {
         );
     }
 
+    // GIAO DIỆN DANH SÁCH LỚP (GIỮ NGUYÊN)
     return (
         <div>
             <div style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
                 <div className="section-title">🏫 Lớp đã tham gia</div>
                 <button className="btn-primary" style={{width:'auto'}} onClick={()=>setShowJoin(true)}>+ Tham gia lớp</button>
             </div>
+            
             <div className="card-grid">
+                {classes.length === 0 && <p style={{color:'gray'}}>Bạn chưa tham gia lớp học nào.</p>}
                 {classes.map(c => (
-                    <div key={c._id} className="course-card" onClick={()=>openClass(c)} style={{cursor:'pointer', borderLeft:'5px solid #22c55e'}}>
-                        <h3>{c.name}</h3><p style={{color:'gray', fontSize:12}}>{c.description}</p><span className="tag tag-green">GV: {c.teacherId?.fullName}</span>
+                    <div key={c._id} className="course-card" onClick={()=>openClass(c)} style={{cursor:'pointer', borderLeft:'5px solid #22c55e', transition:'transform 0.2s'}}>
+                        <h3>{c.name}</h3>
+                        <p style={{color:'gray', fontSize:12}}>{c.description}</p>
+                        <div style={{marginTop:10, display:'flex', gap:10}}>
+                            <span className="tag tag-green">GV: {c.teacherId?.fullName}</span>
+                        </div>
                     </div>
                 ))}
             </div>
+
             {showJoin && <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:9999}}><div className="auth-form-box" style={{background:'white', width:300}}><h3>Nhập Mã Lớp</h3><input id="jcode" className="form-input" placeholder="Mã 6 ký tự" /><button className="btn-primary" onClick={()=>handleJoin(document.getElementById('jcode').value)}>Tham gia</button><button className="btn-upload" style={{color:'red', marginTop:10}} onClick={()=>setShowJoin(false)}>Hủy</button></div></div>}
         </div>
     );
